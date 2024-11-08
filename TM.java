@@ -83,7 +83,8 @@ class Table {
         addTransition("L", '1', '0', Move.RIGHT, "R");
         addTransition("L", '#', '#', Move.RIGHT, "R");
     }
-
+    
+    // Einsen nach rechts bewegen
     public void initializeTransitionsMoveOnes() {
         addTransition("S", '1', '1', Move.LEFT, "S");
         addTransition("S", 'S', 'S', Move.RIGHT, "HALT");
