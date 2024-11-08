@@ -16,14 +16,17 @@ class Tape {
 
     List<Character> tape;
     int headPosition;
-    char defaultChar = '#';
+    char defaultChar1 = '#';
+    char defaultChar2 = 'S';
 
-    public Tape(String initialContent) {
+    public Tape(String initialContent, int startPosition) {
         this.tape = new ArrayList<>();
         for (char c : initialContent.toCharArray()) {
             tape.add(c);
         }
-        this.headPosition = 0;
+        if (startPosition >= 0 && startPosition < tape.size()) {
+            this.headPosition = startPosition;
+        }
     }
     
     char read() {
@@ -38,11 +41,13 @@ class Tape {
         if (direction == Move.RIGHT) {
             headPosition++;
             if (headPosition >= tape.size()) {
-                tape.add(defaultChar);
+                if (tape.get(headPosition) == defaultChar1) tape.add(defaultChar1);
+                if (tape.get(headPosition) == defaultChar2) tape.add(defaultChar2);
             } 
         } else if (direction == Move.LEFT) {
             if (headPosition == 0) {
-                tape.add(0, defaultChar);
+                if (tape.get(headPosition) == defaultChar1) tape.add(0, defaultChar1);
+                if (tape.get(headPosition) == defaultChar2) tape.add(0, defaultChar2);
             } else {
                 headPosition--;
             }
@@ -63,42 +68,82 @@ class Table {
         map.put(trigger, action); 
     }
 
+    // Dekrementierung einer Binärzahl
+    public void initializeTransitionsDecrement() {
+        addTransition("S", '#', '#', Move.LEFT, "S");
+        addTransition("S", '1', '0', Move.RIGHT, "R");
+        addTransition("S", '0', '1', Move.LEFT, "L");
+        addTransition("R", '0', '0', Move.RIGHT, "R");
+        addTransition("R", '1', '1', Move.RIGHT, "R");
+        addTransition("R", '#', '#', Move.LEFT, "W");
+        addTransition("W", '1', '1', Move.RIGHT, "HALT");
+        addTransition("W", '0', '0', Move.RIGHT, "HALT");
+        addTransition("W", '#', '#', Move.RIGHT, "HALT");
+        addTransition("L", '0', '1', Move.LEFT, "L");
+        addTransition("L", '1', '0', Move.RIGHT, "R");
+        addTransition("L", '#', '#', Move.RIGHT, "R");
+    }
+
+    public void initializeTransitionsMoveOnes() {
+        addTransition("S", '1', '1', Move.LEFT, "S");
+        addTransition("S", 'S', 'S', Move.RIGHT, "HALT");
+        addTransition("S", '0', '0', Move.LEFT, "0");
+        addTransition("0", '0', '0', Move.LEFT, "0");
+        addTransition("0", '1', '0', Move.RIGHT, "1");
+        addTransition("0", 'S', 'S', Move.RIGHT, "HALT");
+        addTransition("1", '0', '0', Move.RIGHT, "1");
+        addTransition("1", '1', '1', Move.LEFT, "D");
+        addTransition("1", 'S', 'S', Move.LEFT, "D");
+        addTransition("D", '0', '1', Move.LEFT, "S");
+    }
+
     public Action getAction(String state, char read) {
         return map.get(new Trigger(state, read)); 
     }
 }
 
 class TM {
-    private Tape tape;
+    private Tape tapeTM;
     private Table table;
     private String currentState;
     int stepCount = 0;
 
-    public TM(String initialContent, Table table, String startState) {
-        this.tape = new Tape(initialContent);
-        this.table = table;
+    public TM(String initialContent, String startState, int startPosition, String tableType) {
+        this.tapeTM = new Tape(initialContent, startPosition);
+        this.table = new Table();
+        switch (tableType) {
+            case "decrement":
+                this.table.initializeTransitionsDecrement();
+                break;
+            case "moveOnes":
+                this.table.initializeTransitionsMoveOnes();
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid table type specified.");
+        }
+        
         this.currentState = startState;
     }
 
     public void step() {
-        char currentChar = tape.read();
+        char currentChar = tapeTM.read();
         Action action = table.getAction(currentState, currentChar);
         if (action != null) {
-            tape.write(action.write());
-            tape.move(action.move());
+            tapeTM.write(action.write());
+            tapeTM.move(action.move());
             currentState = action.toState();
-            System.out.println(this); // Gibt den aktuellen Zustand der Maschine aus
         } else {
             currentState = "HALT";
         }
     }
 
     public void run() {
+        System.out.println(this.toString());
+        
         while (!currentState.equals("HALT")) {
-            System.out.print(stepCount + ": "); // Schrittzähler anzeigen
-            System.out.println(this.toString());
             step();
             stepCount++;
+            System.out.println(this.toString());
             try {
                 Thread.sleep(500); // Verzögerung für bessere Sichtbarkeit
             } catch (InterruptedException e) {
@@ -109,20 +154,32 @@ class TM {
 
     @Override
     public String toString() {
-        String result = "";
-        // Darstellung des Bandes mit der Kopfposition direkt aus dem Tape-Objekt
-        for (int i = 0; i < tape.tape.size(); i++) { // Direktzugriff auf das 'tape'-Feld
-            if (i == tape.headPosition) { // Direktzugriff auf 'headPosition'
-                result += "{" + tape.tape.get(i) + "}";
+        String result = "";  
+        if (stepCount >= 10) result += stepCount + ": "; // ein Leerzeichen weniger (Optik)
+        else result += stepCount + ":  ";
+    
+        // Darstellung des Bandes mit der Kopfposition
+        for (int i = 0; i < tapeTM.tape.size(); i++) {
+            if (i == tapeTM.headPosition) {
+                result += "{" + tapeTM.tape.get(i) + "}";
             } else {
-                result += tape.tape.get(i);
+                result += tapeTM.tape.get(i);
             }
             result += " ";
         }
-
-        // Entfernt das letzte Leerzeichen und gibt den Zustand der Maschine an
-        result = result.trim() + " -- " + currentState;
-
+        result += " -- " + currentState;
         return result;
-    }
+    }  
 }
+
+/* 
+Für Bespiel 1:
+String initialContent = "#11000#"
+int startPosition = initialContent.length() - 1
+TM turingMachine = new TM(initialContent, "S", startPosition, "decrement");
+
+Für Bespiel 2:
+String initialContent = "S010101S"
+int startPosition = initialContent.length() - 2
+TM turingMachine = new TM(initialContent, "S", startPosition, "moveOnes");
+*/
