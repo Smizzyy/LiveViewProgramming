@@ -3,6 +3,14 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
 
+Clerk.markdown(
+    Text.fillOut(
+"""
+# Nachbau der Turing-Maschine
+
+""", Map.of("turtle_tree", Text.cutOut("./TM.java", "// turtle tree"),
+            "tree", Text.cutOut("./TM.java", "// tree"))));
+
 enum Move {
     LEFT,
     RIGHT
@@ -108,10 +116,15 @@ class TM {
     private Table table;
     private String currentState;
     int stepCount = 0;
+    Turtle turtle;
+    
 
     public TM(String initialContent, String startState, int startPosition, String tableType) {
         this.tapeTM = new Tape(initialContent, startPosition);
         this.table = new Table();
+        // Initialisieren der Turtle für die Live-View
+        this.turtle = new Turtle(600, 100);
+        
         switch (tableType) {
             case "decrement":
                 this.table.initializeTransitionsDecrement();
@@ -146,7 +159,7 @@ class TM {
             stepCount++;
             System.out.println(this.toString());
             try {
-                Thread.sleep(500); // Verzögerung für bessere Sichtbarkeit
+                Thread.sleep(800); // Verzögerung für bessere Sichtbarkeit
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -169,8 +182,26 @@ class TM {
             result += " ";
         }
         result += " -- " + currentState;
+        updateTurtleView();
         return result;
-    }  
+    }
+    
+    private void updateTurtleView() {
+        turtle.reset(); // Löscht die vorherige Zeichnung und setzt die Turtle in die Mitte zurück
+        int headPosition = tapeTM.headPosition; // Direktzugriff auf das Feld, falls es öffentlich ist
+        turtle.penUp().backward(250).left(90);
+        // Zeichne das Band mit dem Schreib/Lese-Kopf und den Nachbarzellen
+        for (int i = 0; i < tapeTM.tape.size(); i++) {
+            if (i == headPosition) {
+                turtle.color(255, 0, 0); // rot für gelesene Zelle
+                turtle.text("{" + tapeTM.tape.get(i) + "}", null, 40, null);
+            } else {
+                turtle.color(0, 0, 0); // schwarz
+                turtle.text(String.valueOf(tapeTM.tape.get(i)), null, 40, null);
+            }
+            turtle.left(90).backward(70).right(90); // Bewege die Turtle, um Platz für die nächste Zelle zu schaffen
+        }
+    }
 }
 
 /* 
