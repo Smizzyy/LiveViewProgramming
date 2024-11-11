@@ -286,6 +286,7 @@ class TM {
             turtle.left(90).backward(70).right(90); // Bewege die Turtle, um Platz für die nächste Zelle zu schaffen
             cellCounter++;
         }
+        turtle.color(0, 0, 0);
         turtle.text(String.valueOf("-- " + currentState), null, 40, null);
     }
 }
