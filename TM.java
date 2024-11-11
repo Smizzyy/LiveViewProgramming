@@ -192,13 +192,15 @@ class TM {
     private String currentState; // Der aktuelle Zustand der Turing-Maschine
     private int stepCount = 0; // Zähler für die Anzahl der Schritte
     private Turtle turtle; // Turtle-Objekt für die Live-View
+    private int cellCounter = 0;
     
      // Konstruktor zur Initialisierung der Turing-Maschine
     public TM(String initialContent, String startState, int startPosition, String tableType) {
         this.tapeTM = new Tape(initialContent, startPosition);
         this.table = new Table();
         // Initialisieren der Turtle für die Live-View
-        this.turtle = new Turtle(600, 100); // Initialisieren der Turtle-Grafik
+        this.turtle = new Turtle(800, 2000); // Initialisieren der Turtle-Grafik
+        turtle.penUp().backward(350).left(90).forward(950); // Startposition der Turtle setzen
         
         // Auswahl der zu initialisierenden Transitionstabelle basierend auf dem Tabellentyp
         switch (tableType) {
@@ -263,14 +265,15 @@ class TM {
         }
         result += " -- " + currentState; // Ausgabe des aktuellen Zustands
         updateTurtleView(); // Aktualisieren der Live-View mit der Turtle
+        turtle.backward(50).left(90).forward(cellCounter * 70).right(90);
+        cellCounter = 0;
         return result;
     }
     
     // Methode zur Aktualisierung der Live-View
     private void updateTurtleView() {
-        turtle.reset(); // Löscht die vorherige Zeichnung und setzt die Turtle in die Mitte zurück
+        // turtle.reset(); // Löscht die vorherige Zeichnung und setzt die Turtle in die Mitte zurück
         int headPosition = tapeTM.headPosition; // Abrufen der Kopfposition
-        turtle.penUp().backward(250).left(90); // Startposition der Turtle setzen
         // Zeichne das Band mit dem Schreib/Lese-Kopf und den Nachbarzellen
         for (int i = 0; i < tapeTM.tape.size(); i++) {
             if (i == headPosition) {
@@ -281,7 +284,9 @@ class TM {
                 turtle.text(String.valueOf(tapeTM.tape.get(i)), null, 40, null);
             }
             turtle.left(90).backward(70).right(90); // Bewege die Turtle, um Platz für die nächste Zelle zu schaffen
+            cellCounter++;
         }
+        turtle.text(String.valueOf("-- " + currentState), null, 40, null);
     }
 }
 
