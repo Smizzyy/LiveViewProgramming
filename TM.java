@@ -265,14 +265,13 @@ class TM {
         }
         result += " -- " + currentState; // Ausgabe des aktuellen Zustands
         updateTurtleView(); // Aktualisieren der Live-View mit der Turtle
-        turtle.backward(50).left(90).forward(cellCounter * 70).right(90);
-        cellCounter = 0;
+        turtle.backward(50).left(90).forward(cellCounter * 70).right(90); // in eine neue Zeile rutschen
+        cellCounter = 0; // wieder zurücksetzen
         return result;
     }
     
     // Methode zur Aktualisierung der Live-View
     private void updateTurtleView() {
-        // turtle.reset(); // Löscht die vorherige Zeichnung und setzt die Turtle in die Mitte zurück
         int headPosition = tapeTM.headPosition; // Abrufen der Kopfposition
         // Zeichne das Band mit dem Schreib/Lese-Kopf und den Nachbarzellen
         for (int i = 0; i < tapeTM.tape.size(); i++) {
@@ -284,10 +283,10 @@ class TM {
                 turtle.text(String.valueOf(tapeTM.tape.get(i)), null, 40, null);
             }
             turtle.left(90).backward(70).right(90); // Bewege die Turtle, um Platz für die nächste Zelle zu schaffen
-            cellCounter++;
+            cellCounter++; // cellCounter wird bis zur maximalen Anzahl an Zeichen pro Zeile hochgezählt
         }
-        turtle.color(0, 0, 0);
-        turtle.text(String.valueOf("-- " + currentState), null, 40, null);
+        turtle.color(0, 0, 0); // Zustände in schwarz anzeigen
+        turtle.text(String.valueOf("-- " + currentState), null, 40, null); // Zustände dazu ausgeben
     }
 }
 
