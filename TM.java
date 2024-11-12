@@ -49,20 +49,57 @@ jshell> turingMachine.run()
 9:  # 1 0 1 1 {1} #  -- W
 10: # 1 0 1 1 1 {#}  -- HALT
 ```
+#### Beispiel: Einsen nach rechts schieben
+```logo
+jshell> turingMachine.run()
+0:  S 0 1 0 1 0 {1} S  -- S
+1:  S 0 1 0 1 {0} 1 S  -- S
+2:  S 0 1 0 {1} 0 1 S  -- 0
+3:  S 0 1 0 0 {0} 1 S  -- 1
+4:  S 0 1 0 0 0 {1} S  -- 1
+5:  S 0 1 0 0 {0} 1 S  -- D
+6:  S 0 1 0 {0} 1 1 S  -- S
+7:  S 0 1 {0} 0 1 1 S  -- 0
+8:  S 0 {1} 0 0 1 1 S  -- 0
+9:  S 0 0 {0} 0 1 1 S  -- 1
+10: S 0 0 0 {0} 1 1 S  -- 1
+11: S 0 0 0 0 {1} 1 S  -- 1
+12: S 0 0 0 {0} 1 1 S  -- D
+13: S 0 0 {0} 1 1 1 S  -- S
+14: S 0 {0} 0 1 1 1 S  -- 0
+15: S {0} 0 0 1 1 1 S  -- 0
+16: {S} 0 0 0 1 1 1 S  -- 0
+17: S {0} 0 0 1 1 1 S  -- HALT
+```
 
 ### Um diese Ausgaben auch in der LiveView zu erzeugen, führe diese Kommandos in der jshell aus: 
 **Initialisiert das Band:**
 ```logo 
 String initialContent = "#11000#"
 ```
+oder 2. Beispiel:
+```logo 
+String initialContent = "S010101S"
+```
+
 **Vorbelegungszeichen setzten:**
 ```logo 
 int startPosition = initialContent.length() - 1
 ```
+oder 2. Beispiel:
+```logo 
+int startPosition = initialContent.length() - 2
+```
+
 **Der Turing-Maschine das Band, den Zustand, das Vorbelegungszeichen und die Tabelle übergeben:**
 ```logo 
 TM turingMachine = new TM(initialContent, "S", startPosition, "decrement");
 ```
+oder 2. Beispiel:
+```logo 
+TM turingMachine = new TM(initialContent, "S", startPosition, "moveOnes");
+```
+
 **Turing-Maschine starten:**
 ```logo 
 turingMachine.run()
