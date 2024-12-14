@@ -25,6 +25,7 @@ class Circuit<T> {
         }
     }
 
+    // horizontales Rechteck
     void drawPointHorizontal() {
         for (int i = 0; i < 4; i++) {
             turtle1.penDown();
@@ -33,6 +34,7 @@ class Circuit<T> {
         }
     }
 
+    // vertikales Rechteck
     void drawPointVertical() {
         for (int i = 0; i < 4; i++) {
             turtle1.penDown();
@@ -77,12 +79,26 @@ class Circuit<T> {
         System.out.println(component + " an Position " + col + ", " + row + " hinzugefuegt.");
     }
 
-    Point getPosition(T component) {
+    // Position einer Komponente herausfinden
+    String getPosition(T component) {
         for (Map.Entry<Point, T> entry : components.entrySet()) { // iteriert über alle Schlüssel-Wert-Paare
-            if (entry.getValue().equals(component)) return entry.getKey(); // Position der Komponente gefunden
+            if (entry.getValue().equals(component)) {
+                Point position = entry.getKey(); 
+                return component + " befindet sich an Position " + position.x + ", " + position.y + "."; // Position der Komponente gefunden
+            }
         }
-        return null; // nicht gefunden
+        return component + "wurde nicht gefunden."; // nicht gefunden
     }
+
+    // Komponente einer Position herausfinden
+    T getComponent(int col, int row) {
+        if (row < 0 || col < 0) {
+            throw new IllegalArgumentException("Zeile und Spalte müssen positiv sein.");
+        }
+        Point position = new Point(col, row);
+        return components.get(position);
+    }
+    
 }
 
 // Gatter mit verschiedener Logik
@@ -117,7 +133,7 @@ class Gate {
 
     @Override
     public String toString() {
-        return "Gate type: " + type;
+        return "Gate type: " + type + " named: " + name;
     }
 }
 
@@ -131,3 +147,7 @@ class Input {
 
 // Circuit<Object> c1 = new Circuit<>("Circ 1");
 // c1.drawCircuitField(15, 15);
+// Gate andGate1 = new Gate("and", "andGate1");
+// c1.addComponent(2, 3, andGate1);
+// c1.getPosition(andGate1);
+// c1.getComponent(2, 3);
