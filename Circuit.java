@@ -4,16 +4,21 @@ import java.util.Map;
 
 class Circuit<T> {
     private String name;
+    private int maxRows; 
+    private int maxCols;
     private Map<Point, T> components;
     private Turtle turtle1;
     private int width = 1700;
     private int height = 1700;
     
     // Konstruktor
-    Circuit(String name) {
+    Circuit(String name, int cols, int rows) {
         this.turtle1 = new Turtle(this.width, this.height);
         this.components = new HashMap<>();
         this.name = name;
+        this.maxCols = cols;
+        this.maxRows = rows;
+        drawCircuitField();
     }
 
     // einzelenes Quadrat im Feld
@@ -44,26 +49,26 @@ class Circuit<T> {
     }
     
     // Schaltungfeld zeichnen
-    void drawCircuitField(int cols, int rows) {
-        assert (rows > 0 && cols > 0); 
+    void drawCircuitField() {
+        assert (maxRows > 0 && maxCols > 0); 
         int x = 50, y = 50;
-        // Anzahl Reihen und Spalten zeichnen
+        // Anzahl Spalten und zeichnen
         turtle1.moveTo(x, 0);
-        for (int i = 0; i < rows; i++) { 
+        for (int i = 0; i < maxCols; i++) { 
             turtle1.color(255, 0, 0).penUp().left(90).backward(35).text("     " + (i + 1), null, 25, null).forward(35).right(90).color(0, 0, 0);
             drawPointHorizontal();
             turtle1.penUp().forward(100);
         }
         turtle1.moveTo(0, y);
-        for (int i = 0; i < cols; i++) {
+        for (int i = 0; i < maxRows; i++) {
             turtle1.color(255, 0, 0).penUp().forward(10).left(90).backward(60).text("" + (i + 1), null, 25, null).forward(60).right(90).backward(10).color(0, 0, 0);
             drawPointVertical();
             turtle1.penUp().right(90).forward(100).left(90);
         }
         // Feld zeichnen
         turtle1.moveTo(x, y);
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
+        for (int i = 0; i < maxRows; i++) {
+            for (int j = 0; j < maxCols; j++) {
                 drawSquare();
                 turtle1.penUp().forward(100); // zur Position der nächsten Zelle bewegen
             }
@@ -71,8 +76,17 @@ class Circuit<T> {
         }
     }
 
+    boolean isValidPosition(int row, int col) {
+        return row >= 0 && row < maxRows && col >= 0 && col < maxCols;
+    }
+
     // Komponente hinzufügen
     void addComponent(int row, int col, T component) {
+
+        if (!isValidPosition(row, col)) {
+            throw new IllegalArgumentException("Ungültige Position: (" + row + ", " + col + "). Diese Position existiert nicht im Schaltungsfeld.");
+        }
+
         Point position = new Point(col, row);
         if (components.containsKey(position)) throw new IllegalArgumentException("An dieser Position existiert bereits eine Komponente!");
 
@@ -102,7 +116,7 @@ class Circuit<T> {
         // else if Wire..., else if Input...
         else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
 
-        System.out.println(component + " an Position " + row + ", " + col + " hinzugefuegt.");
+        System.out.println(component + " an Position (" + row + ", " + col + ") hinzugefuegt.");
     }
 
     // Position einer Komponente herausfinden
@@ -110,7 +124,7 @@ class Circuit<T> {
         for (Map.Entry<Point, T> entry : components.entrySet()) { // iteriert über alle Schlüssel-Wert-Paare
             if (entry.getValue().equals(component)) {
                 Point position = entry.getKey(); 
-                return component + " befindet sich an Position " + position.x + ", " + position.y + "."; // Position der Komponente gefunden
+                return component + " befindet sich an Position (" + position.x + ", " + position.y + ")."; // Position der Komponente gefunden
             }
         }
         return component + "wurde nicht gefunden."; // nicht gefunden
@@ -226,7 +240,7 @@ class Circuit<T> {
         drawNotCircle();
         turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
         // 1 Input
-        turtle1.penUp().backward(68).penDown().backward(5).right(180);
+        turtle1.penUp().backward(68).penDown().backward(5).penUp();
     }
 }
 
