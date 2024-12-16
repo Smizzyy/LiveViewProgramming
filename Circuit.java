@@ -225,7 +225,7 @@ class Circuit<T> {
         turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
         drawNotCircle();
         turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
-        // 2 Inputs
+        // 1 Input
         turtle1.penUp().backward(68).penDown().backward(5).right(180);
     }
 }
