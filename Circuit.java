@@ -72,11 +72,37 @@ class Circuit<T> {
     }
 
     // Komponente hinzufügen
-    void addComponent(int col, int row, T component) {
+    void addComponent(int row, int col, T component) {
         Point position = new Point(col, row);
         if (components.containsKey(position)) throw new IllegalArgumentException("An dieser Position existiert bereits eine Komponente!");
-        else components.put(position, component);
-        System.out.println(component + " an Position " + col + ", " + row + " hinzugefuegt.");
+
+        // Komponente zur Map hinzufügen
+        components.put(position, component);
+
+        // Umrechnung in Pixelkoordinaten
+        int cellWidth = 100, cellHeight = 100; // Breite und Höhe einer Zelle in Pixeln
+        int xPixel = col * cellWidth;
+        int yPixel = row * cellHeight;
+        
+        turtle1.moveTo(xPixel, yPixel).backward(25).left(90).forward(25).right(90); // zur Position gehen
+
+        // Typprüfung und Zeichnen der Komponente
+        if (component instanceof Gate gate) { 
+            switch (gate.getType()) {
+                case "AND" -> drawANDGate();
+                case "OR" -> drawORGate();
+                case "XOR" -> drawXORGate();
+                case "NAND" -> drawNANDGate();
+                case "NOR" -> drawNORGate();
+                case "XNOR" -> drawXNORGate();
+                case "NOT" -> drawNOTGate();
+                default -> throw new IllegalArgumentException("Unbekannter Gate-Typ: " + gate.getType());
+            }
+        } 
+        // else if Wire..., else if Input...
+        else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
+
+        System.out.println(component + " an Position " + row + ", " + col + " hinzugefuegt.");
     }
 
     // Position einer Komponente herausfinden
@@ -98,7 +124,110 @@ class Circuit<T> {
         Point position = new Point(col, row);
         return components.get(position);
     }
-    
+
+    // vertikal ausgerichtetes Rechteck
+    void drawSmallSquare() {
+        turtle1.penDown();
+        for (int i = 0; i < 4; i++) {
+            turtle1.forward(50).right(90);
+        }
+        turtle1.penUp();
+    }
+
+    void drawNotCircle() {
+        double radius = 6;
+        double stepSize = (2 * Math.PI * radius) / 360;
+        turtle1.penDown();
+        for (int i = 0; i < 360; i++) {
+            turtle1.forward(stepSize).right(1);
+        }
+        turtle1.penUp();
+    }
+
+    // AND-Gate zeichnen
+    void drawANDGate() {
+        drawSmallSquare();
+        // Beschriftung 
+        turtle1.penUp().forward(19).left(90).backward(18).text("&", null, 12, null).backward(7).right(90);
+        // Output
+        turtle1.forward(31).penDown().forward(5);
+        // 2 Inputs
+        turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+    }
+
+    // OR-Gate zeichnen
+    void drawORGate() {
+        drawSmallSquare();
+        // Beschriftung
+        turtle1.penUp().forward(17).left(90).backward(18).text("≥1", null, 12, null).backward(7).right(90);
+        // Output
+        turtle1.forward(33).penDown().forward(5);
+        // 2 Inputs
+        turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+    }
+
+    // XOR-Gate zeichnen
+    void drawXORGate() {
+        drawSmallSquare();
+        // Beschriftung
+        turtle1.penUp().forward(17).left(90).backward(18).text("=1", null, 12, null).backward(7).right(90);
+        // Output
+        turtle1.forward(33).penDown().forward(5);
+        // 2 Inputs
+        turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+    }
+
+    // NAND-Gate zeichnen
+    void drawNANDGate() {
+        drawSmallSquare();
+        // Beschriftung 
+        turtle1.penUp().forward(19).left(90).backward(18).text("&", null, 12, null).backward(7).right(90);
+        // not-Output 
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
+        // 2 Inputs
+        turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+    }
+
+    // NOR-Gate zeichnen
+    void drawNORGate() {
+        drawSmallSquare();
+        // Beschriftung 
+        turtle1.penUp().forward(19).left(90).backward(18).text("≥1", null, 12, null).backward(7).right(90);
+        // not-Output 
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
+        // 2 Inputs
+        turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+    }
+
+    // XNOR-Gate zeichnen
+    void drawXNORGate() {
+        drawSmallSquare();
+        // Beschriftung 
+        turtle1.penUp().forward(19).left(90).backward(18).text("=1", null, 12, null).backward(7).right(90);
+        // not-Output 
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
+        // 2 Inputs
+        turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+    }
+
+    // NOT-Gate zeichnen
+    void drawNOTGate() {
+        drawSmallSquare();
+        // Beschriftung 
+        turtle1.penUp().forward(19).left(90).backward(18).text("1", null, 12, null).backward(7).right(90);
+        // not-Output 
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
+        // 2 Inputs
+        turtle1.penUp().backward(68).penDown().backward(5).right(180);
+    }
 }
 
 // Gatter mit verschiedener Logik
@@ -129,6 +258,11 @@ class Gate {
             default -> throw new IllegalArgumentException("Unbekannter Gate-Typ: " + type);
         };
         return output;
+    }
+
+    // Typ abrufen
+    public String getType() {
+        return type;
     }
 
     @Override
