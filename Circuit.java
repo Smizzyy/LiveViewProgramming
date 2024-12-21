@@ -176,7 +176,9 @@ class Circuit<T> {
                 case "NOT" -> drawNOTGate(gate);
                 default -> throw new IllegalArgumentException("Unbekannter Gate-Typ: " + gate.getType());
             }
-        } 
+        } else if (component instanceof Input input) {
+            drawInput(input);
+        }
         // else if Wire..., else if Input...
         else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
 
@@ -212,6 +214,7 @@ class Circuit<T> {
         turtle1.penUp();
     }
 
+    // bei NOT, NAND, NOR und XNOR Gatter
     void drawNotCircle() {
         double radius = 6;
         double stepSize = (2 * Math.PI * radius) / 360;
@@ -224,6 +227,7 @@ class Circuit<T> {
 
     // AND-Gate zeichnen
     void drawANDGate(Gate gate) {
+        // Benennung
         turtle1.penUp().left(90).forward(5).text(gate.getName(), null, 12, null).backward(5).right(90);
         drawSmallSquare();
         // Beschriftung 
@@ -236,10 +240,11 @@ class Circuit<T> {
 
     // OR-Gate zeichnen
     void drawORGate(Gate gate) {
+        // Benennung
         turtle1.penUp().left(90).forward(5).text(gate.getName(), null, 12, null).backward(5).right(90);
         drawSmallSquare();
         // Beschriftung
-        turtle1.penUp().forward(17).left(90).backward(18).text("≥1", null, 12, null).backward(7).right(90);
+        turtle1.penUp().forward(17).left(90).backward(18).text("≥1", null, 13, null).backward(7).right(90);
         // Output
         turtle1.forward(33).penDown().forward(5);
         // 2 Inputs
@@ -248,10 +253,11 @@ class Circuit<T> {
 
     // XOR-Gate zeichnen
     void drawXORGate(Gate gate) {
+        // Benennung
         turtle1.penUp().left(90).forward(5).text(gate.getName(), null, 12, null).backward(5).right(90);
         drawSmallSquare();
         // Beschriftung
-        turtle1.penUp().forward(17).left(90).backward(18).text("=1", null, 12, null).backward(7).right(90);
+        turtle1.penUp().forward(17).left(90).backward(18).text("=1", null, 13, null).backward(7).right(90);
         // Output
         turtle1.forward(33).penDown().forward(5);
         // 2 Inputs
@@ -260,10 +266,11 @@ class Circuit<T> {
 
     // NAND-Gate zeichnen
     void drawNANDGate(Gate gate) {
+        // Benennung
         turtle1.penUp().left(90).forward(5).text(gate.getName(), null, 12, null).backward(5).right(90);
         drawSmallSquare();
         // Beschriftung 
-        turtle1.penUp().forward(19).left(90).backward(18).text("&", null, 12, null).backward(7).right(90);
+        turtle1.penUp().forward(19).left(90).backward(18).text("&", null, 13, null).backward(7).right(90);
         // not-Output 
         turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
         drawNotCircle();
@@ -274,10 +281,11 @@ class Circuit<T> {
 
     // NOR-Gate zeichnen
     void drawNORGate(Gate gate) {
+        // Benennung
         turtle1.penUp().left(90).forward(5).text(gate.getName(), null, 12, null).backward(5).right(90);
         drawSmallSquare();
         // Beschriftung 
-        turtle1.penUp().forward(19).left(90).backward(18).text("≥1", null, 12, null).backward(7).right(90);
+        turtle1.penUp().forward(19).left(90).backward(18).text("≥1", null, 13, null).backward(7).right(90);
         // not-Output 
         turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
         drawNotCircle();
@@ -288,10 +296,11 @@ class Circuit<T> {
 
     // XNOR-Gate zeichnen
     void drawXNORGate(Gate gate) {
+        // Benennung
         turtle1.penUp().left(90).forward(5).text(gate.getName(), null, 12, null).backward(5).right(90);
         drawSmallSquare();
         // Beschriftung 
-        turtle1.penUp().forward(19).left(90).backward(18).text("=1", null, 12, null).backward(7).right(90);
+        turtle1.penUp().forward(19).left(90).backward(18).text("=1", null, 13, null).backward(7).right(90);
         // not-Output 
         turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
         drawNotCircle();
@@ -302,16 +311,27 @@ class Circuit<T> {
 
     // NOT-Gate zeichnen
     void drawNOTGate(Gate gate) {
+        // Benennung
         turtle1.penUp().left(90).forward(5).text(gate.getName(), null, 12, null).backward(5).right(90);
         drawSmallSquare();
         // Beschriftung 
-        turtle1.penUp().forward(19).left(90).backward(18).text("1", null, 12, null).backward(7).right(90);
+        turtle1.penUp().forward(19).left(90).backward(18).text("1", null, 13, null).backward(7).right(90);
         // not-Output 
         turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
         drawNotCircle();
         turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
         // 1 Input
         turtle1.penUp().backward(68).penDown().backward(5).penUp();
+    }
+
+    // Input in der ersten Spalte zeichnen
+    void drawInput(Input input) {
+        // Benennung
+        turtle1.penUp().forward(15).left(90).backward(20).text(input.getInputName(), null, 14, null).right(90).backward(15);
+        // Input-Wert
+        turtle1.left(90).backward(10).text("" + input.getInputValue(), null, 15, null).forward(3).right(90).forward(10);
+        // Input-Objekt
+        turtle1.penDown().forward(40).penUp();
     }
 }
 
@@ -346,33 +366,42 @@ class Gate {
     }
 
     // Typ abrufen
-    public String getType() {
-        return type;
+    String getType() {
+        return this.type;
     }
 
     // Namen abrufen
-    public String getName() {
-        return name;
+    String getName() {
+        return this.name;
+    }
+
+    // Output-Wert abrufen
+    int getOutputValue() {
+        return this.output;
     }
 
     @Override
     public String toString() {
-        return "Gate type: " + type + " named: " + name;
+        return "Gate type: " + this.type + " named: " + this.name;
     }
 }
 
 class Input {
     String name;
     int input;
-    int output;
 
     // Konstruktor
     Input(String name, int input) {
         assert input == 1 || input == 0;
         this.name = name;
         this.input = input;
-        if (input == 1) this.output = 1;
-        else this.output = 0;
+    }
+
+    String getInputName() {
+        return this.name;
+    }
+    int getInputValue() {
+        return this.input;
     }
 }
 
@@ -385,3 +414,4 @@ class Wire {
 // c1.addComponent(2, 3, andGate1);
 // c1.getPosition(andGate1);
 // c1.getComponent(2, 3);
+// Input input1 = new Input("x1", 1);
