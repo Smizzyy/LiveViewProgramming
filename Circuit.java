@@ -177,7 +177,7 @@ class Circuit<T> {
                 default -> throw new IllegalArgumentException("Unbekannter Gate-Typ: " + gate.getType());
             }
         } else if (component instanceof Input input) {
-            drawInput(input);
+            drawInput(input);;;
         }
         // else if Wire..., else if Input...
         else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
