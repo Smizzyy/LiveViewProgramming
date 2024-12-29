@@ -7,6 +7,9 @@ class Circuit<T> {
     private int maxRows; 
     private int maxCols;
     private Map<Point, T> components;
+    private Map<Point, T> firstInputPositions;
+    private Map<Point, T> secondInputPositions;
+    private Map<Point, T> outputPositions;
     private Turtle turtle1;
     private int width = 1700;
     private int height = 1700;
@@ -15,6 +18,9 @@ class Circuit<T> {
     Circuit(String name, int cols, int rows) {
         this.turtle1 = new Turtle(this.width, this.height);
         this.components = new HashMap<>();
+        this.firstInputPositions = new HashMap<>();
+        this.secondInputPositions = new HashMap<>();
+        this.outputPositions = new HashMap<>();
         this.name = name;
         this.maxCols = cols;
         this.maxRows = rows;
@@ -156,13 +162,38 @@ class Circuit<T> {
 
         // Komponente zur Map hinzufügen
         components.put(position, component);
-
-        // Umrechnung in Pixelkoordinaten
-        int cellWidth = 100, cellHeight = 100; // Breite und Höhe einer Zelle in Pixeln
-        int xPixel = col * cellWidth;
-        int yPixel = row * cellHeight;
         
-        turtle1.moveTo(xPixel, yPixel).backward(25).left(90).forward(25).right(90); // zur Position gehen
+        turtle1.moveTo(getPixel(col), getPixel(row)).backward(25).left(90).forward(25).right(90); // zur Position gehen
+
+        // Typprüfung und Zeichnen der Komponente
+        if (component instanceof Gate gate) { 
+            switch (gate.getType()) {
+                case "AND" -> drawANDGate(gate);
+                case "OR" -> drawORGate(gate);
+                case "XOR" -> drawXORGate(gate);
+                case "NAND" -> drawNANDGate(gate);
+                case "NOR" -> drawNORGate(gate);
+                case "XNOR" -> drawXNORGate(gate);
+                case "NOT" -> drawNOTGate(gate);
+                default -> throw new IllegalArgumentException("Unbekannter Gate-Typ: " + gate.getType());
+            }
+        } else if (component instanceof Input input) {
+            drawInput(input);
+        }
+        // else if Wire...
+        else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
+
+        System.out.println(component + " an Position (" + row + ", " + col + ") hinzugefuegt.");
+    }
+
+    // Komponente hinzufügen ohne Überprüfung, um dynamisch zeichnen zu können
+    void addComponentWithoutChecks(int row, int col, T component) {
+        Point position = new Point(col, row);
+
+        // Komponente zur Map hinzufügen
+        components.put(position, component);
+        
+        turtle1.moveTo(getPixel(col), getPixel(row)).backward(25).left(90).forward(25).right(90); // zur Position gehen
 
         // Typprüfung und Zeichnen der Komponente
         if (component instanceof Gate gate) { 
@@ -185,6 +216,34 @@ class Circuit<T> {
         System.out.println(component + " an Position (" + row + ", " + col + ") hinzugefuegt.");
     }
 
+    // Position in Pixelgröße umrechnen
+    int getPixel (int colOrRow) {
+        int cellWidthOrHeight = 100;
+        int pixel = colOrRow * cellWidthOrHeight;
+        return pixel;
+    }
+
+    // Komponente verbinden
+    void connectComponents(T sourceComponent, T destinationComponent) {
+        Point position;
+
+    }
+
+    // Eingänge schalten
+    int setInput(T component, int value) {
+        if (value != 0 && value != 1) throw new IllegalArgumentException("Bitte nur 1 oder 0 schalten.");
+        if (component instanceof Input inputComponent) {
+            if (inputComponent.input != value) {
+                inputComponent.input = value; // Eingang wird umgeschaltet
+                System.out.println(inputComponent.getInputName() + " wurde auf " + inputComponent.input + " geschaltet."); 
+                drawNewCircuit();
+                return inputComponent.getInputValue();
+            } else throw new IllegalArgumentException("Dieser Einagng hat schon den Wert " + inputComponent.input);
+            
+        }
+        throw new IllegalArgumentException("Fehler: Nicht kompatible Komponente. Bitte Input-Komponente angeben.");
+    }
+
     // Position einer Komponente herausfinden
     String getPosition(T component) {
         for (Map.Entry<Point, T> entry : components.entrySet()) { // iteriert über alle Schlüssel-Wert-Paare
@@ -196,6 +255,30 @@ class Circuit<T> {
         return component + "wurde nicht gefunden."; // nicht gefunden
     }
 
+    // Pixel von X einer Komponente abrufen
+    int getPixelPositionX(T component) {
+        for (Map.Entry<Point, T> entry : components.entrySet()) { 
+            if (entry.getValue().equals(component)) {
+                Point position = entry.getKey();
+                int xPixel =  position.x * 100 + 50; // Umrechnung mit Rand 
+                return xPixel; 
+            }
+        }
+        return -1; 
+    }
+
+    // Pixel von Y einer Komponente abrufen
+    int getPixelPositionY(T component) {
+        for (Map.Entry<Point, T> entry : components.entrySet()) { 
+            if (entry.getValue().equals(component)) {
+                Point position = entry.getKey();
+                int yPixel =  position.y * 100 + 50; // Umrechnung mit Rand 
+                return yPixel;
+            }
+        }
+        return -1;
+    }
+
     // Komponente einer Position herausfinden
     T getComponent(int row, int col) {
         if (row < 0 || col < 0) {
@@ -204,6 +287,18 @@ class Circuit<T> {
         Point position = new Point(col, row);
         return components.get(position);
     }
+
+    // alles wieder neu zeichnen 
+    void drawNewCircuit() {
+        turtle1.reset();
+        drawCircuitField();
+        for (Map.Entry<Point, T> entry : components.entrySet()) {
+            Point position = entry.getKey();
+            T component = entry.getValue(); 
+            addComponentWithoutChecks(position.y, position.x, component);
+        }
+    }
+    
 
     // vertikal ausgerichtetes Rechteck
     void drawSmallSquare() {
@@ -326,12 +421,27 @@ class Circuit<T> {
 
     // Input in der ersten Spalte zeichnen
     void drawInput(Input input) {
+        // int x = getPixelPositionX(input);
+        int y;
         // Benennung
         turtle1.penUp().forward(15).left(90).backward(20).text(input.getInputName(), null, 14, null).right(90).backward(15);
-        // Input-Wert
-        turtle1.left(90).backward(10).text("" + input.getInputValue(), null, 15, null).forward(3).right(90).forward(10);
-        // Input-Objekt
-        turtle1.penDown().forward(40).penUp();
+        if (input.getInputValue() == 1) {
+            // Input-Wert bei 1 grün
+            turtle1.left(90).backward(10).color(0, 255, 0).text("" + input.getInputValue(), null, 15, null).forward(3).right(90).forward(10);
+            // Input-Objekt bei 1 grün
+            turtle1.penDown().forward(40).penUp().color(0, 0, 0);
+        } else {
+            // Input-Wert
+            turtle1.left(90).backward(10).text("" + input.getInputValue(), null, 15, null).forward(3).right(90).forward(10);
+            // Input-Objekt
+            turtle1.penDown().forward(40).penUp(); 
+            
+        }
+    }
+
+    // Ausgangsposition von Input speichern 
+    void saveConnectingPointOfInput(Input input, int x, int y) {
+        
     }
 }
 
@@ -342,6 +452,9 @@ class Gate {
     private int input1;
     private int input2;
     private int output;
+    Point input1Position;
+    Point input2Position;
+    Point outputPosition;
 
     // Konstruktor
     Gate(String type, String name) {
@@ -353,13 +466,13 @@ class Gate {
     // wandelt den input je nach Logik in output um
     int inputToOutput() {
         output = switch (type) {
-            case "AND" -> input1 & input2;
-            case "OR" -> input1 | input2;
-            case "XOR" -> input1 ^ input2;
-            case "NAND" -> ~(input1 & input2);
-            case "NOR" -> ~(input1 | input2);
-            case "XNOR" -> ~(input1 ^ input2);
-            case "NOT" -> ~input1;
+            case "AND" -> this.input1 & this.input2;
+            case "OR" -> this.input1 | this.input2;
+            case "XOR" -> this.input1 ^ this.input2;
+            case "NAND" -> ~(this.input1 & this.input2);
+            case "NOR" -> ~(this.input1 | this.input2);
+            case "XNOR" -> ~(this.input1 ^ this.input2);
+            case "NOT" -> ~this.input1;
             default -> throw new IllegalArgumentException("Unbekannter Gate-Typ: " + type);
         };
         return output;
@@ -380,28 +493,60 @@ class Gate {
         return this.output;
     }
 
+    // ersten Input-Wert abrufen
+    int getInputValue1() {
+        return this.input1;
+    }
+
+    // zweiten Input-Wert abrufen
+    int getInputValue2() {
+        return this.input2;
+    }
+
     @Override
     public String toString() {
         return "Gate type: " + this.type + " named: " + this.name;
     }
 }
 
+// Eingänge zum Schalten
 class Input {
     String name;
     int input;
+    Point outputPosition;
 
-    // Konstruktor
+    // Konstruktor mit direkter Input-Eingabe
     Input(String name, int input) {
         assert input == 1 || input == 0;
         this.name = name;
         this.input = input;
+        this.outputPosition = outputPosition;
     }
 
+    // Konstruktor ohne Input-Eingabe
+    Input (String name) {
+        this.name = name;
+        this.input = 0;
+    }
+
+    // Nanme für die Zuordnung
     String getInputName() {
         return this.name;
     }
+
+    // geschaltenen Wert abrufen
     int getInputValue() {
         return this.input;
+    }
+
+    // Position des Ausgangs abrufen
+    Point getOutputPosition() {
+        return this.outputPosition;
+    }
+
+    @Override
+    public String toString() {
+        return this.name;
     }
 }
 
@@ -415,3 +560,10 @@ class Wire {
 // c1.getPosition(andGate1);
 // c1.getComponent(2, 3);
 // Input input1 = new Input("x1", 1);
+
+
+/*
+Idee: Beim Hinzufügen einer Komponente jeden einzelnen Eingang und Ausgang in die jeweilige Map speichern. Jede Map davon hat den Punkt
+als key und die Komponente als value. Wichtig ist es, dass bei den Methoden, wo die jeweilige Komponente gezeichnet wird, gleichzeitig
+die Koordinaten der Eingänge und Ausgänge und Komponente an sich gespeichert werden. 
+*/
