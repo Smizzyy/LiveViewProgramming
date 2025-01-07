@@ -16,6 +16,7 @@ class Circuit<T> {
     private Turtle turtle1;
     private int width = 1700;
     private int height = 1700;
+    private int offset = 5; // Versetzung des Kabels 
     
     // Konstruktor
     Circuit(String name, int cols, int rows) {
@@ -252,7 +253,6 @@ class Circuit<T> {
         int startY = sourceOutput.y;
         int endX = destInput.x;
         int endY = destInput.y;
-        int offset = 8; // Versetzung
         boolean movedDown = false; // um, die Turtle wieder in richtige Position zu bringen
 
         // zähle die Anzahl der Verbindungen zu dieser Zielkomponente also 0, 1 oder 2
@@ -264,7 +264,10 @@ class Circuit<T> {
         turtle1.moveTo(startX, startY).penDown();
 
         // Kabel nach rechts zeichnen
-        moveHorizontally(startX, endX, offset, existingConnections, applyOffset);
+        if (applyOffset && existingConnections > 0) {
+            moveHorizontally(startX, endX, offset, existingConnections, applyOffset);
+            offset += 5; // wird immer erhöht nach jeder Verwendung, um Überlappungen zu vermeiden
+        } else moveHorizontally(startX, endX, 0, existingConnections, false);
 
         // Kabel nach oben oder unten zeichnen
         moveVertically(startY, endY, offset, existingConnections, movedDown, applyOffset);
@@ -301,7 +304,7 @@ class Circuit<T> {
                 turtle1.forward(1);
             }
             if (movedDown) turtle1.left(90).forward(offset).right(90); // offset-Strich zeichnen 
-            else turtle1.right(90).forward(offset).left(90); 
+            else turtle1.right(90).forward(offset).left(90);
         } else {
             if (startY < endY) {
                 turtle1.right(90); // nach unten drehen
@@ -522,12 +525,12 @@ class Circuit<T> {
         y -= 15;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).backward(30); // Test
         point = new Point(x, y);
-        outputPositions.put(component, point); // die Koordinaten vom oberen Eingang gespeichert
+        firstInputPositions.put(component, point); // die Koordinaten vom oberen Eingang gespeichert
         System.out.println("Koordinaten oberen Eingang: x = " + x + ", y = " + y);
         y += 30;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).backward(30); // Test
         point = new Point(x, y);
-        outputPositions.put(component, point); // die Koordinaten vom unteren Eingang gespeichert
+        secondInputPositions.put(component, point); // die Koordinaten vom unteren Eingang gespeichert
         System.out.println("Koordinaten unteren Eingang: x = " + x + ", y = " + y);
     }
 
@@ -902,6 +905,24 @@ Input input2 = new Input("x2", 0);
 c1.addComponent(3, 1, input2);
 Gate xnorGate1 = new Gate("xnor", "xnorGate1");
 c1.addComponent(1, 2, xnorGate1);
+c1.connectComponents(input1, xnorGate1, 1);
+c1.connectComponents(input2, xnorGate1, 2);
+*/
+
+/*
+Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
+Input input1 = new Input("x1", 1);
+Input input2 = new Input("x2", 0);
+Input input3 = new Input("x3", 1);
+Gate andGate1 = new Gate("and", "andGate1");
+Gate xnorGate1 = new Gate("xnor", "xnorGate1");
+c1.addComponent(1, 1, input1);
+c1.addComponent(2, 1, input2);
+c1.addComponent(3, 1, input3);
+c1.addComponent(3, 3, xnorGate1);
+c1.addComponent(4, 3, andGate1);
+c1.connectComponents(input3, andGate1, 2);
+c1.connectComponents(input1, andGate1, 1);
 c1.connectComponents(input1, xnorGate1, 1);
 c1.connectComponents(input2, xnorGate1, 2);
 */
