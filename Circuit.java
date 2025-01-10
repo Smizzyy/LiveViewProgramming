@@ -16,7 +16,9 @@ class Circuit<T> {
     private Turtle turtle1;
     private int width = 1700;
     private int height = 1700;
-    private int offset = 5; // Versetzung des Kabels 
+    // Versetzung des Kabels 
+    private int offsetX = 5; 
+    private int offsetY = 5;
     
     // Konstruktor
     Circuit(String name, int cols, int rows) {
@@ -64,16 +66,16 @@ class Circuit<T> {
         assert (maxRows > 0 && maxCols > 0); 
         int x = 50, y = 50;
         // Anzahl Spalten und Reihen zeichnen
-        turtle1.moveTo(x, 0);
+        turtle1.moveTo(x, 0).color(170, 170, 170);
         for (int i = 0; i < maxCols; i++) {
-            if ((i + 1) > 1) turtle1.color(255, 0, 0).penUp().left(90).backward(35).text("     " + (i + 1), null, 25, null).forward(35).right(90).color(0, 0, 0); 
-            else turtle1.color(255, 0, 0).penUp().left(90).backward(35).text("     " + (i + 1) + " (E)", null, 25, null).forward(35).right(90).color(0, 0, 0); // Eingang: Nur für Input-Objekte reserviert
+            if ((i + 1) > 1) turtle1.color(255, 0, 0).penUp().left(90).backward(35).text("     " + (i + 1), null, 25, null).forward(35).right(90).color(170, 170, 170); 
+            else turtle1.color(255, 0, 0).penUp().left(90).backward(35).text("     " + (i + 1) + " (E)", null, 25, null).forward(35).right(90).color(170, 170, 170); // Eingang: Nur für Input-Objekte reserviert
             drawPointHorizontal();
             turtle1.penUp().forward(100);
         }
         turtle1.moveTo(0, y);
         for (int i = 0; i < maxRows; i++) {
-            turtle1.color(255, 0, 0).penUp().forward(10).left(90).backward(60).text("" + (i + 1), null, 25, null).forward(60).right(90).backward(10).color(0, 0, 0);
+            turtle1.color(255, 0, 0).penUp().forward(10).left(90).backward(60).text("" + (i + 1), null, 25, null).forward(60).right(90).backward(10).color(170, 170, 170);
             drawPointVertical();
             turtle1.penUp().right(90).forward(100).left(90);
         }
@@ -86,6 +88,7 @@ class Circuit<T> {
             }
             turtle1.moveTo(x, y += 100);
         }
+        turtle1.color(0, 0, 0);
     }
 
     // Spalten hinzufügen
@@ -138,7 +141,6 @@ class Circuit<T> {
         System.out.println(count + " Spalte(n) wurde(n) hinzugefuegt. Gesamtspalten: " + maxRows);
     }
     
-
     // prüft, ob man sich noch im Feld befindet
     boolean isValidPosition(int row, int col) {
         return row >= 0 && row < maxRows && col >= 0 && col < maxCols;
@@ -187,7 +189,6 @@ class Circuit<T> {
         // Typprüfung und Zeichnen der Komponente
         if (component instanceof Gate) selectGateAndDraw(component);
         else if (component instanceof Input) drawInput(component);
-        // else if Wire...
         else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
 
         System.out.println(component + " an Position (" + row + ", " + col + ") hinzugefuegt.");
@@ -233,27 +234,37 @@ class Circuit<T> {
         // doppelte Verbindungen vermeiden
         if (isConnectionPresent(destinationComponent, inputNumber)) throw new IllegalArgumentException("Verbindung existiert bereits: " + sourceComponent + " -> " + destinationComponent + " (Eingang " + inputNumber + ")");
 
-        // prüfen, ob ein offset erforderlich ist
-        boolean applyOffset = connections.stream()
+        // prüfen, ob ein offset in x-Richtung erforderlich ist
+        boolean applyXOffset = connections.stream()
             .filter(conn -> conn.destination.equals(destinationComponent))
             .map(conn -> conn.source)
             .anyMatch(otherSource -> 
-                checkSourcesPositions(sourceComponent, otherSource, destinationComponent));
+                checkSourcesYPositions(sourceComponent, otherSource, destinationComponent));
+        
+        // prüfen, ob ein offset in y-Richtung erforderlich ist
+        boolean applyYOffset = connections.stream()
+            .filter(conn -> !conn.destination.equals(destinationComponent) && conn.inputNumber == inputNumber)
+            .anyMatch(conn -> checkSourcesXPositions(sourceComponent, destinationComponent));
+
+        System.out.println(applyYOffset);
 
         // Verbindung in die Liste eintragen
         connections.add(new Connection<>(sourceComponent, destinationComponent, inputNumber));
         System.out.println("Verbindung hinzugefügt: " + sourceComponent + " -> " + destinationComponent + " (Eingang " + inputNumber + ")");
 
         turtle1.moveTo(sourceOutput.x, sourceOutput.y);
-        drawConnection(sourceOutput, destInput, destinationComponent, applyOffset);
+        drawConnection(sourceOutput, destInput, sourceComponent, destinationComponent, applyXOffset, applyYOffset);
     }
 
-    void drawConnection(Point sourceOutput, Point destInput, T destinationComponent, boolean applyOffset) {
+    void drawConnection(Point sourceOutput, Point destInput, T sourceComponent, T destinationComponent, boolean applyXOffset, boolean applyYOffset) {
         int startX = sourceOutput.x;
         int startY = sourceOutput.y;
         int endX = destInput.x;
         int endY = destInput.y;
         boolean movedDown = false; // um, die Turtle wieder in richtige Position zu bringen
+
+        boolean detourNeeded = needsDetour(sourceComponent, destinationComponent);
+        System.out.println(detourNeeded);
 
         // zähle die Anzahl der Verbindungen zu dieser Zielkomponente also 0, 1 oder 2
         long existingConnections = connections.stream()
@@ -263,20 +274,42 @@ class Circuit<T> {
         // Startposition
         turtle1.moveTo(startX, startY).penDown();
 
+        if (detourNeeded && applyYOffset) {
+            if (startY < endY) {
+                turtle1.right(90).forward(30 + offsetY).left(90);
+                startY += 30;
+            }
+            else if (startY > endY) {
+                turtle1.left(90). forward(30 + offsetY).right(90);
+                startY -= 30;
+            }
+            System.out.println(offsetY);
+            offsetY += 5;
+        } else if (detourNeeded) {
+            if (startY < endY) {
+                turtle1.right(90).forward(30).left(90);
+                startY += 30;
+            }
+            else if (startY > endY) {
+                turtle1.left(90).forward(30).right(90);
+                startY -= 30;
+            }
+        }
+
         // Kabel nach rechts zeichnen
-        if (applyOffset && existingConnections > 0) {
-            moveHorizontally(startX, endX, offset, existingConnections, applyOffset);
-            offset += 5; // wird immer erhöht nach jeder Verwendung, um Überlappungen zu vermeiden
+        if (applyXOffset && existingConnections > 0) {
+            moveHorizontally(startX, endX, offsetX, existingConnections, applyXOffset);
+            offsetX += 5; // wird immer erhöht nach jeder Verwendung, um Überlappungen zu vermeiden
         } else moveHorizontally(startX, endX, 0, existingConnections, false);
 
         // Kabel nach oben oder unten zeichnen
-        moveVertically(startY, endY, offset, existingConnections, movedDown, applyOffset);
+        moveVertically(startY, endY, offsetX, existingConnections, movedDown, applyXOffset);
     }
 
     // Kabel nach rechts zeichnen
-    void moveHorizontally(int startX, int endX, int offset, long existingConnections, boolean applyOffset) {
-        if (applyOffset && existingConnections > 0) { // mit offset
-            while (startX != (endX - offset)) {
+    void moveHorizontally(int startX, int endX, int offsetX, long existingConnections, boolean applyXOffset) {
+        if (applyXOffset && existingConnections > 0) { // mit offset
+            while (startX != (endX - offsetX)) {
                 startX += 1; 
                 turtle1.forward(1);
             }
@@ -289,13 +322,12 @@ class Circuit<T> {
     }
 
     // Kabel nach oben oder unten zeichnen
-    void moveVertically(int startY, int endY, int offset, long existingConnections, boolean movedDown, boolean applyOffset) {
-        if (applyOffset && existingConnections > 0) {
+    void moveVertically(int startY, int endY, int offsetX, long existingConnections, boolean movedDown, boolean applyXOffset) {
+        if (applyXOffset && existingConnections > 0) {
             if (startY < endY) {
                 turtle1.right(90); // nach unten drehen
                 movedDown = true;
-            }
-            else if (startY > endY) {
+            } else if (startY > endY) {
                 turtle1.left(90); // nach oben drehen
                 movedDown = false;
             }
@@ -303,8 +335,10 @@ class Circuit<T> {
                 startY += (startY < endY) ? 1 : -1; // addiere wenn nach unten, subtrahiere wenn nach oben
                 turtle1.forward(1);
             }
-            if (movedDown) turtle1.left(90).forward(offset).right(90); // offset-Strich zeichnen 
-            else turtle1.right(90).forward(offset).left(90);
+            if (offsetX > 10) turtle1.forward(offsetY - 5);
+            // offset-Strich zeichnen
+            if (movedDown) turtle1.left(90).forward(offsetX - 5).right(90); // offset-Strich zeichnen 
+            else turtle1.right(90).forward(offsetX - 5).left(90);
         } else {
             if (startY < endY) {
                 turtle1.right(90); // nach unten drehen
@@ -318,6 +352,7 @@ class Circuit<T> {
                 startY += (startY < endY) ? 1 : -1; // addiere wenn nach unten, subtrahiere wenn nach oben
                 turtle1.forward(1);
             }
+            if (offsetY > 5) turtle1.forward(offsetY - 5); // damit es richtig verbindet, sobald ein offset in y-Richtung angewendet wurde
         }
 
         // Turtle wieder nach rechts drehen
@@ -325,8 +360,47 @@ class Circuit<T> {
         else turtle1.right(90).penUp();  // nach rechts drehen, wenn nach oben gezeichnet wurde
     }
 
+    // prüft, ob Zelle schon besetzt ist
+    boolean isCellOccupied(int row, int col) {
+        Point position = new Point(col, row);
+        return components.containsKey(position);
+    }
+    
+    // prüft, ob eine Zelle auf dem Weg besetzt ist (außer Ziel)
+    boolean needsDetour(T sourceComponent, T destinationComponent) {
+        // den Punkt für die Quelle rausbekommen
+        Point sourcePosition = components.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(sourceComponent))
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElse(null);
+
+        // den Punkt für das Ziel rausbekommen
+        Point destinationPosition = components.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(destinationComponent))
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElse(null);
+
+        int sourceCol = sourcePosition.x;
+        int sourceRow = sourcePosition.y;
+        int destCol = destinationPosition.x;
+
+        if (sourceCol < destCol) {
+            for (int col = sourceCol + 1; col < destCol; col++) {
+                Point currentCell = new Point(col, sourceRow);
+    
+                // Prüfen, ob die Zelle besetzt ist und nicht die Zielkomponente ist
+                if (isCellOccupied(sourceRow, col) && !destinationComponent.equals(components.get(currentCell))) {
+                    return true; // Umgehung erforderlich
+                }
+            }
+        }
+        return false; // Keine Umgehung erforderlich
+    }
+    
     // prüfen, ob beide Quellen oberhalb oder unterhalb sind 
-    boolean checkSourcesPositions(T source1, T source2, T destination) {
+    boolean checkSourcesYPositions(T source1, T source2, T destination) {
         Point source1Position = outputPositions.get(source1);
         Point source2Position = outputPositions.get(source2);
         Point destinationPosition = null;
@@ -346,8 +420,29 @@ class Circuit<T> {
         boolean bothBelow = source1Position.y > destinationPosition.y && source2Position.y > destinationPosition.y;
 
         return bothAbove || bothBelow;
-    } 
+    }
+    
+    boolean checkSourcesXPositions(T sourceComponent, T destinationComponent) {
+        Point sourcePosition = components.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(sourceComponent))
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElse(null);
 
+        // den Punkt für das Ziel rausbekommen
+        Point destinationPosition = components.entrySet().stream()
+            .filter(entry -> entry.getValue().equals(destinationComponent))
+            .map(Map.Entry::getKey)
+            .findFirst()
+            .orElse(null);
+
+        if (sourcePosition == null || destinationPosition == null) {
+            throw new IllegalArgumentException("Komponentenposition nicht gefunden.");
+        }
+
+        // Wenn die Zielkomponente in derselben Zeile wie die Quelle liegt
+        return sourcePosition.y == destinationPosition.y;
+    }
     // alle Verbindungen ausgeben
     void printConnections() {
         if (connections.isEmpty()) {
@@ -415,12 +510,12 @@ class Circuit<T> {
     int setInput(T component, int value) {
         if (value != 0 && value != 1) throw new IllegalArgumentException("Bitte nur 1 oder 0 schalten.");
         if (component instanceof Input inputComponent) {
-            if (inputComponent.input != value) {
-                inputComponent.input = value; // Eingang wird umgeschaltet
-                System.out.println(inputComponent.getInputName() + " wurde auf " + inputComponent.input + " geschaltet."); 
+            if (inputComponent.inputValue != value) {
+                inputComponent.inputValue = value; // Eingang wird umgeschaltet
+                System.out.println(inputComponent.getInputName() + " wurde auf " + inputComponent.inputValue + " geschaltet."); 
                 drawNewCircuit();
                 return inputComponent.getInputValue();
-            } else throw new IllegalArgumentException("Dieser Einagng hat schon den Wert " + inputComponent.input);
+            } else throw new IllegalArgumentException("Dieser Einagng hat schon den Wert " + inputComponent.inputValue);
             
         }
         throw new IllegalArgumentException("Fehler: Nicht kompatible Komponente. Bitte Input-Komponente angeben.");
@@ -750,7 +845,7 @@ class Circuit<T> {
             turtle1.penDown().forward(40).penUp().color(0, 0, 0);
         } else {
             // Input-Wert
-            turtle1.left(90).backward(10).text("" + input.getInputValue(), null, 15, null).forward(3).right(90).forward(10);
+            turtle1.left(90).backward(10).text("" + input.inputValue, null, 15, null).forward(3).right(90).forward(10);
             // Input-Objekt
             turtle1.penDown().forward(40).penUp(); 
         }
@@ -824,20 +919,20 @@ class Gate {
 
 // Eingänge zum Schalten
 class Input {
-    String name;
-    int input;
+    private String name;
+    int inputValue;
 
     // Konstruktor mit direkter Input-Eingabe
-    Input(String name, int input) {
-        assert input == 1 || input == 0;
+    Input(String name, int inputValue) {
+        assert inputValue == 1 || inputValue == 0;
         this.name = name;
-        this.input = input;
+        this.inputValue = inputValue;
     }
 
     // Konstruktor ohne Input-Eingabe
     Input (String name) {
         this.name = name;
-        this.input = 0;
+        this.inputValue = 0;
     }
 
     // Nanme für die Zuordnung
@@ -847,7 +942,7 @@ class Input {
 
     // geschaltenen Wert abrufen
     int getInputValue() {
-        return this.input;
+        return this.inputValue;
     }
 
     @Override
@@ -925,4 +1020,28 @@ c1.connectComponents(input3, andGate1, 2);
 c1.connectComponents(input1, andGate1, 1);
 c1.connectComponents(input1, xnorGate1, 1);
 c1.connectComponents(input2, xnorGate1, 2);
+*/
+
+/* 
+Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
+Gate andGate1 = new Gate("and", "andGate1");
+Gate xnorGate1 = new Gate("xnor", "xnorGate1");
+Gate nandGate1 = new Gate("nand", "nandGate1");
+c1.addComponent(2, 2, xnorGate1);
+c1.addComponent(2, 3, nandGate1);
+c1.addComponent(2, 4, andGate1);
+c1.connectComponents(xnorGate1, andGate1, 2);
+Gate orGate1 = new Gate("or", "orGate1");
+c1.addComponent(2, 5, orGate1);
+c1.connectComponents(xnorGate1, orGate1, 2);
+c1.connectComponents(xnorGate1, andGate1, 1);
+c1.connectComponents(xnorGate1, orGate1, 1);
+Gate norGate1 = new Gate("nor", "norGate1");
+c1.addComponent(2, 6, norGate1);
+c1.connectComponents(nandGate1, norGate1, 2);
+c1.connectComponents(nandGate1, norGate1, 1);
+Gate xorGate1 = new Gate("xor", "xorGate1");
+c1.addComponent(2, 7, xorGate1);
+c1.connectComponents(andGate1, xorGate1, 2);
+c1.connectComponents(andGate1, xorGate1, 1);
 */
