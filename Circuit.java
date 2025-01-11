@@ -255,9 +255,55 @@ class Circuit<T> {
 
         turtle1.moveTo(sourceOutput.x, sourceOutput.y);
         drawConnection(sourceOutput, destInput, sourceComponent, destinationComponent, applyXOffset, applyYOffset, isAlreadyConnected);
-        // checkAndDrawConnectionPoint();
     }
 
+    // Verbindungen neuzeichnen
+    void reconnectComponents() {
+        // Temporäre Kopie der Verbindungen
+        List<Connection<T>> tempConnections = new ArrayList<>(connections);
+    
+        // Verbindungen zurücksetzen
+        connections.clear();
+    
+        // Offsets zurücksetzen
+        offsetX = 5;
+        offsetY = 5;
+    
+        // jede Verbindung aus der temporären Liste neu zeichnen
+        for (Connection<T> connection : tempConnections) {
+            Point sourceOutput = outputPositions.get(connection.source);
+            Point destInput = (connection.inputNumber == 1)
+                ? firstInputPositions.get(connection.destination)
+                : secondInputPositions.get(connection.destination);
+    
+            if (sourceOutput == null || destInput == null) {
+                System.out.println("Verbindung nicht möglich. Komponentenposition nicht gefunden.");
+                continue;
+            }
+    
+            // Offset prüfen
+            boolean applyXOffset = tempConnections.stream()
+                .filter(conn -> conn.destination.equals(connection.destination))
+                .map(conn -> conn.source)
+                .anyMatch(otherSource -> checkSourcesYPositions(connection.source, otherSource, connection.destination));
+    
+            boolean applyYOffset = tempConnections.stream()
+                .filter(conn -> !conn.destination.equals(connection.destination) && conn.inputNumber == connection.inputNumber)
+                .anyMatch(conn -> compareXPositions(connection.source, connection.destination));
+    
+            // Prüfen, ob Quelle bereits verbunden ist
+            boolean isAlreadyConnected = isSourceConnected(connection.source);
+    
+            // Verbindung wieder in die Liste eintragen
+            connections.add(connection);
+    
+            // Verbindung zeichnen
+            turtle1.moveTo(sourceOutput.x, sourceOutput.y);
+            drawConnection(sourceOutput, destInput, connection.source, connection.destination, applyXOffset, applyYOffset, isAlreadyConnected);
+        }
+    }
+    
+    
     void drawConnection(Point sourceOutput, Point destInput, T sourceComponent, T destinationComponent, boolean applyXOffset, boolean applyYOffset, boolean isAlreadyConnected) {
         int startX = sourceOutput.x;
         int startY = sourceOutput.y;
@@ -341,7 +387,7 @@ class Circuit<T> {
                 turtle1.left(90); // nach oben drehen
                 movedDown = false;
             }
-            
+            System.out.println(isAlreadyConnected + " " + applyYOffset);
             if (isAlreadyConnected && !applyYOffset) drawIntersectionCircle();
             while (startY != endY) {
                 startY += (startY < endY) ? 1 : -1; // addiere wenn nach unten, subtrahiere wenn nach oben
@@ -455,6 +501,7 @@ class Circuit<T> {
         return bothAbove || bothBelow;
     }
     
+    // vergleicht, ob Quelle und Ziel in einer vertikalen Linie stehen
     boolean compareXPositions(T sourceComponent, T destinationComponent) {
         Point sourcePosition = components.entrySet().stream()
             .filter(entry -> entry.getValue().equals(sourceComponent))
@@ -477,6 +524,7 @@ class Circuit<T> {
         return sourcePosition.y == destinationPosition.y;
     }
     
+    // zeichnet den Punkt bei einer Verbindungskreuzung
     void drawIntersectionCircle() {
         double radius = 1.5;
         double stepSize = (2 * Math.PI * radius) / 360;
@@ -485,41 +533,7 @@ class Circuit<T> {
             turtle1.forward(stepSize).right(1);
         }
     }
-
-    void checkAndDrawConnectionPoint() {
-        for (int i = 0; i < connections.size(); i++) {
-            Connection<T> conn1 = connections.get(i);
     
-            for (int j = i + 1; j < connections.size(); j++) {
-                Connection<T> conn2 = connections.get(j);
-    
-                // Prüfen, ob beide Verbindungen dasselbe Ziel haben
-                if (conn1.destination.equals(conn2.destination)) {
-                    // Eingangspositionen vergleichen
-                    Point input1Pos = (conn1.inputNumber == 1) ? firstInputPositions.get(conn1.destination) : secondInputPositions.get(conn1.destination);
-                    Point input2Pos = (conn2.inputNumber == 1) ? firstInputPositions.get(conn2.destination) : secondInputPositions.get(conn2.destination);
-    
-                    // Prüfen, ob sich die Verbindungen kreuzen
-                    if (input1Pos.equals(input2Pos)) {
-                        drawConnectionPoint(input1Pos);
-                    }
-                }
-            }
-        }
-    }
-    
-    void drawConnectionPoint(Point position) {
-        turtle1.moveTo(position.x, position.y).penDown();
-        double radius = 3; // Größe des Punktes
-        double stepSize = (2 * Math.PI * radius) / 360;
-    
-        for (int i = 0; i < 360; i++) {
-            turtle1.forward(stepSize).right(1);
-        }
-        turtle1.penUp();
-    }
-    
-
     // alle Verbindungen ausgeben
     void printConnections() {
         if (connections.isEmpty()) {
@@ -669,6 +683,8 @@ class Circuit<T> {
             T component = entry.getValue(); 
             addComponentWithoutChecks(position.y, position.x, component);
         }
+
+        reconnectComponents();
     }
     
     // vertikal ausgerichtetes Rechteck
