@@ -3,9 +3,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.awt.Rectangle;
 
 class Circuit<T> {
-    private String name;
     private int maxRows; 
     private int maxCols;
     private Map<Point, T> components; // key: Punkt, value: Komponente 
@@ -13,6 +13,7 @@ class Circuit<T> {
     private Map<T, Point> secondInputPositions; // key: Komponente, value: Punkt
     private Map<T, Point> outputPositions; // key: Komponente, value: Punkt
     private List<Connection<T>> connections; // Liste der verbundenen Komponente 
+    private List<Point> wirePoints = new ArrayList<>(); // speichert die Punkte ab, wo sich ein Kabel befindet
     private Turtle turtle1;
     private int width = 1700;
     private int height = 1700;
@@ -28,7 +29,7 @@ class Circuit<T> {
         this.secondInputPositions = new HashMap<>();
         this.outputPositions = new HashMap<>();
         this.connections = new ArrayList<>();
-        this.name = name;
+        this.wirePoints = new ArrayList<>();
         this.maxCols = cols;
         this.maxRows = rows;
         drawCircuitField();
@@ -174,12 +175,17 @@ class Circuit<T> {
         if (col != 1 && (component instanceof Input)) throw new IllegalArgumentException("Input-Objekte duerfen nur in Spalte 1 hinzugefuegt werden.");
         
         Point position = new Point(col, row);
+        Rectangle gateArea = getGateArea(row, col);
 
         // freie Position prüfen
         if (components.containsKey(position)) throw new IllegalArgumentException("An dieser Position existiert bereits eine Komponente!");
 
-        // bereits existierendes Objekt prüfen
+        // bereits existierendes Objekt im Schaltungfeld prüfen
         if (components.containsValue(component)) throw new IllegalArgumentException("Das Objekt " + component + " existiert bereits im Schaltungsfeld und kann nicht erneut hinzugefügt werden.");
+
+        // prüft, ob der Bereich durch ein Kabel blockiert ist
+        for (Point wirePoint : wirePoints) 
+            if (gateArea.contains(wirePoint)) throw new IllegalArgumentException("In dieser Zelle verläuft ein Kabel. Komponente kann hier nicht platziert werden.");
 
         // Komponente zur Map hinzufügen
         components.put(position, component);
@@ -217,6 +223,18 @@ class Circuit<T> {
         int cellWidthOrHeight = 100;
         int pixel = colOrRow * cellWidthOrHeight;
         return pixel;
+    }
+
+    // Gatterbereich abrufen
+    Rectangle getGateArea(int row, int col) {
+        int border = 50;
+        int gateSize = 50;
+        
+        // Startpunkt linke obere Ecke 
+        int startX = col * 100 + border - 75;
+        int startY = row * 100 + border - 75;
+
+        return new Rectangle(startX, startY, gateSize, gateSize);
     }
 
     // Komponente verbinden
@@ -321,117 +339,60 @@ class Circuit<T> {
         // Startposition
         turtle1.moveTo(startX, startY).penDown();
 
-        if (detourNeeded && applyYOffset) {
-            if (startY < endY) {
-                turtle1.right(90).forward(30 + offsetY).left(90);
-                startY += 30;
-            }
-            else if (startY > endY) {
-                turtle1.left(90). forward(30 + offsetY).right(90);
-                startY -= 30;
-            }
-            System.out.println("yOffset");
-            offsetY += 5;
-        } else if (detourNeeded) {
-            if (startY < endY) {
-                turtle1.right(90).forward(30).left(90);
-                startY += 30;
-            }
-            else if (startY > endY) {
-                turtle1.left(90).forward(30).right(90);
-                startY -= 30;
-            }
-        }
+        // y-Offset anwenden  
+        startY = applyDetourIfNeeded(detourNeeded, applyYOffset, startY, endY);
 
         // Kabel nach rechts zeichnen
         if ((applyXOffset && existingConnections > 0)) {
-            moveHorizontally(startX, endX, offsetX, existingConnections, applyXOffset, false);
+            moveHorizontally(startX, endX, startY, endY, offsetX, existingConnections, applyXOffset, false);
             offsetX += 5;
         } else if (isAlreadyConnected) {
-            moveHorizontally(startX, endX, offsetX, existingConnections, false, isAlreadyConnected);
+            moveHorizontally(startX, endX, startY, endY, offsetX, existingConnections, false, isAlreadyConnected);
             offsetX += 5;
         }
-        else moveHorizontally(startX, endX, 0, existingConnections, false, false);
+        else moveHorizontally(startX, endX, startY, endY, 0, existingConnections, false, false);
 
         // Kabel nach oben oder unten zeichnen
-        moveVertically(startY, endY, offsetX, existingConnections, movedDown, applyXOffset, applyYOffset, isAlreadyConnected);
+        moveVertically(startX, endX, startY, endY, offsetX, existingConnections, movedDown, applyXOffset, applyYOffset, isAlreadyConnected);
     }
 
     // Kabel nach rechts zeichnen
-    void moveHorizontally(int startX, int endX, int offsetX, long existingConnections, boolean applyXOffset, boolean isAlreadyConnected) {
-        if (applyXOffset && existingConnections > 0) { // mit offset
+    void moveHorizontally(int startX, int endX, int startY, int endY, int offsetX, long existingConnections, boolean applyXOffset, boolean isAlreadyConnected) {
+        if ((applyXOffset && existingConnections > 0) || isAlreadyConnected) { // mit offset
             while (startX != (endX - offsetX)) {
                 startX += 1; 
                 turtle1.forward(1);
+                wirePoints.add(new Point(startX, startY));
             }
-        } else if (isAlreadyConnected) { // mit offset
-            while (startX != (endX - offsetX)) {
+        } else { // ohne offset
+            while (startX != endX) { 
                 startX += 1; 
                 turtle1.forward(1);
-            }
-        } else {
-            while (startX != endX) { // ohne offset
-                startX += 1; 
-                turtle1.forward(1);
+                wirePoints.add(new Point(startX, startY));
             }
         }
     }
 
     // Kabel nach oben oder unten zeichnen
-    void moveVertically(int startY, int endY, int offsetX, long existingConnections, boolean movedDown, boolean applyXOffset, boolean applyYOffset, boolean isAlreadyConnected) {
+    void moveVertically(int startX, int endX, int startY, int endY, int offsetX, long existingConnections, boolean movedDown, boolean applyXOffset, boolean applyYOffset, boolean isAlreadyConnected) {
+        movedDown = setVerticalDirection(startY, endY); // prüft ob nach unten oder oben gezeichnet werdenn muss 
         if (applyXOffset && existingConnections > 0) {
-            if (startY < endY) {
-                turtle1.right(90); // nach unten drehen
-                movedDown = true;
-            } else if (startY > endY) {
-                turtle1.left(90); // nach oben drehen
-                movedDown = false;
-            }
-            System.out.println(isAlreadyConnected + " " + applyYOffset);
             if (isAlreadyConnected && !applyYOffset) drawIntersectionCircle();
-            while (startY != endY) {
-                startY += (startY < endY) ? 1 : -1; // addiere wenn nach unten, subtrahiere wenn nach oben
-                turtle1.forward(1);
-            }
-            if (offsetX > 15) turtle1.forward(offsetY - 5);
+            startY = drawVerticalWire(startX, startY, endY); // hoch oder runter zeichnen
+            if (offsetX > 15) turtle1.forward(offsetY - 5); // damit es richtig verbindet, sobald ein offset in y-Richtung angewendet wurde
             // offset-Strich zeichnen
             if (movedDown) turtle1.left(90).forward(offsetX - 5).right(90);
             else turtle1.right(90).forward(offsetX - 5).left(90);
-            System.out.println("applyXOffset && existingConnections > 0");
-            System.out.println(offsetY);
         } else if (isAlreadyConnected) {
-            if (startY < endY) {
-                turtle1.right(90); // nach unten drehen
-                movedDown = true;
-            } else if (startY > endY) {
-                turtle1.left(90); // nach oben drehen
-                movedDown = false;
-            }
             if (!applyYOffset) drawIntersectionCircle(); 
-            while (startY != endY) {
-                startY += (startY < endY) ? 1 : -1; // addiere wenn nach unten, subtrahiere wenn nach oben
-                turtle1.forward(1);
-            }
+            startY = drawVerticalWire(startX, startY, endY);
             if (offsetX > 5) turtle1.forward(offsetY - 5);
             // offset-Strich zeichnen
             if (movedDown) turtle1.left(90).forward(offsetX - 5).right(90);
             else turtle1.right(90).forward(offsetX - 5).left(90);
-            System.out.println("isAlreadyConnected");
-            System.out.println(offsetY);
         } else {
-            if (startY < endY) {
-                turtle1.right(90); // nach unten drehen
-                movedDown = true;
-            }
-            else if (startY > endY) {
-                turtle1.left(90); // nach oben drehen
-                movedDown = false;
-            }
-            while (startY != endY) {
-                startY += (startY < endY) ? 1 : -1; // addiere wenn nach unten, subtrahiere wenn nach oben
-                turtle1.forward(1);
-            }
-            if (offsetY > 5) turtle1.forward(offsetY - 5); // damit es richtig verbindet, sobald ein offset in y-Richtung angewendet wurde
+            startY = drawVerticalWire(startX, startY, endY);
+            if (offsetY > 5) turtle1.forward(offsetY - 5); 
         }
 
         // Turtle wieder nach rechts drehen
@@ -439,6 +400,28 @@ class Circuit<T> {
         else turtle1.right(90).penUp();  // nach rechts drehen, wenn nach oben gezeichnet wurde
     }
 
+    // nach oben oder nach unten drehen
+    boolean setVerticalDirection(int startY, int endY) {
+        if (startY < endY) {
+            turtle1.right(90); // nach unten drehen
+            return true;       // movedDown = true
+        } else if (startY > endY) {
+            turtle1.left(90);  // nach oben drehen
+            return false;      // movedDown = false
+        }
+        return false;
+    }
+
+    // Verbindung nach unten oder oben zeichen 
+    int drawVerticalWire(int startX, int startY, int endY) {
+        while (startY != endY) {
+            startY += (startY < endY) ? 1 : -1;
+            turtle1.forward(1);
+            wirePoints.add(new Point(startX, startY));  // Kabelpunkt speichern
+        }
+        return startY;
+    }
+    
     // prüft, ob Zelle schon besetzt ist
     boolean isCellOccupied(int row, int col) {
         Point position = new Point(col, row);
@@ -478,6 +461,29 @@ class Circuit<T> {
         return false; // Keine Umgehung erforderlich
     }
     
+    // drumherum zeichnen
+    int applyDetourIfNeeded(boolean detourNeeded, boolean applyYOffset, int startY, int endY) {
+        if (detourNeeded && applyYOffset) {
+            if (startY < endY) {
+                turtle1.right(90).forward(30 + offsetY).left(90);
+                startY += 30;
+            } else if (startY > endY) {
+                turtle1.left(90).forward(30 + offsetY).right(90);
+                startY -= 30;
+            }
+            offsetY += 5;
+        } else if (detourNeeded) {
+            if (startY < endY) {
+                turtle1.right(90).forward(30).left(90);
+                startY += 30;
+            } else if (startY > endY) {
+                turtle1.left(90).forward(30).right(90);
+                startY -= 30;
+            }
+        }
+        return startY;  // aktualisiertes startY zurückgeben
+    }
+
     // prüfen, ob beide Quellen oberhalb oder unterhalb sind 
     boolean checkSourcesYPositions(T source1, T source2, T destination) {
         Point source1Position = outputPositions.get(source1);
@@ -684,7 +690,7 @@ class Circuit<T> {
             addComponentWithoutChecks(position.y, position.x, component);
         }
 
-        reconnectComponents();
+        reconnectComponents(); // Kabel wieder zeichnen
     }
     
     // vertikal ausgerichtetes Rechteck
@@ -1067,10 +1073,6 @@ class Connection<T> {
     }
 }
 
-
-class Wire {
-
-}
 
 // Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
 // Gate andGate1 = new Gate("and", "andGate1");
