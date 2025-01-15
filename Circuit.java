@@ -20,6 +20,7 @@ class Circuit<T> {
     // Versetzung des Kabels 
     private int offsetX = 5; 
     private int offsetY = 5;
+    private boolean isRedrawing = false;
     
     // Konstruktor
     Circuit(String name, int cols, int rows) {
@@ -202,10 +203,6 @@ class Circuit<T> {
 
     // Komponente hinzufügen ohne Überprüfung, um dynamisch zeichnen zu können
     void addComponentWithoutChecks(int row, int col, T component) {
-        Point position = new Point(col, row);
-
-        // Komponente zur Map hinzufügen
-        components.put(position, component);
         
         turtle1.moveTo(getPixel(col), getPixel(row)).backward(25).left(90).forward(25).right(90); // zur Position gehen
 
@@ -214,8 +211,6 @@ class Circuit<T> {
         else if (component instanceof Input) drawInput(component);
         // else if Wire..., else if Input...
         else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
-
-        System.out.println(component + " an Position (" + row + ", " + col + ") hinzugefuegt.");
     }
 
     // Position in Pixelgröße umrechnen
@@ -271,8 +266,17 @@ class Circuit<T> {
         connections.add(new Connection<>(sourceComponent, destinationComponent, inputNumber));
         System.out.println("Verbindung hinzugefügt: " + sourceComponent + " -> " + destinationComponent + " (Eingang " + inputNumber + ")");
 
+        
+
         turtle1.moveTo(sourceOutput.x, sourceOutput.y);
         drawConnection(sourceOutput, destInput, sourceComponent, destinationComponent, applyXOffset, applyYOffset, isAlreadyConnected);
+
+        if (!isRedrawing) {
+            isRedrawing = true;    // Schutz aktivieren
+            evaluateCircuit();
+            drawNewCircuit();      // Alles neu zeichnen
+            isRedrawing = false;   // Schutz deaktivieren
+        }
     }
 
     // Verbindungen neuzeichnen
@@ -314,14 +318,14 @@ class Circuit<T> {
     
             // Verbindung wieder in die Liste eintragen
             connections.add(connection);
-    
+            
             // Verbindung zeichnen
             turtle1.moveTo(sourceOutput.x, sourceOutput.y);
             drawConnection(sourceOutput, destInput, connection.source, connection.destination, applyXOffset, applyYOffset, isAlreadyConnected);
         }
     }
     
-    
+    // Verbindung zeichnen lassen
     void drawConnection(Point sourceOutput, Point destInput, T sourceComponent, T destinationComponent, boolean applyXOffset, boolean applyYOffset, boolean isAlreadyConnected) {
         int startX = sourceOutput.x;
         int startY = sourceOutput.y;
@@ -342,6 +346,10 @@ class Circuit<T> {
         // y-Offset anwenden  
         startY = applyDetourIfNeeded(detourNeeded, applyYOffset, startY, endY);
 
+        if (compareXPositions(sourceComponent, destinationComponent)) offsetX = 5; // damit offsetX nicht zu sehr wächst
+
+        if ((sourceComponent instanceof Gate gate && gate.output == 1) || (sourceComponent instanceof Input input && input.inputValue == 1)) turtle1.color(0, 150, 0); // Kabel grün bei input == 1
+
         // Kabel nach rechts zeichnen
         if ((applyXOffset && existingConnections > 0)) {
             moveHorizontally(startX, endX, startY, endY, offsetX, existingConnections, applyXOffset, false);
@@ -354,18 +362,19 @@ class Circuit<T> {
 
         // Kabel nach oben oder unten zeichnen
         moveVertically(startX, endX, startY, endY, offsetX, existingConnections, movedDown, applyXOffset, applyYOffset, isAlreadyConnected);
+        turtle1.color(0, 0, 0);
     }
 
     // Kabel nach rechts zeichnen
     void moveHorizontally(int startX, int endX, int startY, int endY, int offsetX, long existingConnections, boolean applyXOffset, boolean isAlreadyConnected) {
         if ((applyXOffset && existingConnections > 0) || isAlreadyConnected) { // mit offset
-            while (startX != (endX - offsetX)) {
+            while (startX < (endX - offsetX)) {
                 startX += 1; 
                 turtle1.forward(1);
                 wirePoints.add(new Point(startX, startY));
             }
         } else { // ohne offset
-            while (startX != endX) { 
+            while (startX < endX) { 
                 startX += 1; 
                 turtle1.forward(1);
                 wirePoints.add(new Point(startX, startY));
@@ -610,18 +619,64 @@ class Circuit<T> {
     }    
 
     // Eingänge schalten
-    int setInput(T component, int value) {
+    void setInput(T component, int value) {
+        isRedrawing = true;
+
         if (value != 0 && value != 1) throw new IllegalArgumentException("Bitte nur 1 oder 0 schalten.");
         if (component instanceof Input inputComponent) {
             if (inputComponent.inputValue != value) {
                 inputComponent.inputValue = value; // Eingang wird umgeschaltet
                 System.out.println(inputComponent.getInputName() + " wurde auf " + inputComponent.inputValue + " geschaltet."); 
+                evaluateCircuit();
                 drawNewCircuit();
-                return inputComponent.getInputValue();
             } else throw new IllegalArgumentException("Dieser Einagng hat schon den Wert " + inputComponent.inputValue);
             
-        }
-        throw new IllegalArgumentException("Fehler: Nicht kompatible Komponente. Bitte Input-Komponente angeben.");
+        } else throw new IllegalArgumentException("Fehler: Nicht kompatible Komponente. Bitte Input-Komponente angeben.");
+        
+        isRedrawing = false;
+    }
+
+    // Ouput der jeweiligen Komponente abrufen
+    int getComponentOutput(T component) {
+        if (component instanceof Input input) return input.inputValue;
+        else if (component instanceof Gate gate) return gate.output;
+        else throw new IllegalArgumentException("Unbekannte Komponente: " + component );
+    }
+
+    // Schaltung auswerten
+    void evaluateCircuit() { 
+        boolean hasChanged;
+
+        do {
+            hasChanged = false; 
+            
+            // iteriere über alle Verbindungen und berechne die Outputs
+            for (Connection<T> connection : connections) {
+                T source = connection.source;
+                T destination = connection.destination;
+                int inputNumber = connection.inputNumber;
+                int sourceOutput = getComponentOutput(source); // Output der Quelle ermitteln
+                
+                 // Zielkomponente prüfen (muss immer Gate sein)
+                if (destination instanceof Gate gate) {
+                    int previousOutput = gate.output;
+
+                    // setze den Eingangswert abhängig vom Eingang (1 oder 2)
+                    if (inputNumber == 1) gate.setInput1(sourceOutput);
+                    else if (inputNumber == 2) gate.setInput2(sourceOutput);
+                    
+                    gate.inputToOutput();
+
+                    // prüfen, ob sich der Output geändert hat
+                    if (gate.output != previousOutput) {
+                        System.out.println("[" + gate.getName() + "] Output geändert:");
+                        System.out.println("  Vorher: " + previousOutput);
+                        System.out.println("  Nachher: " + gate.output);
+                        hasChanged = true;
+                    }
+                }
+            }
+        } while (hasChanged); // wiederholen, solange sich Outputs ändern
     }
 
     // Position einer Komponente herausfinden
@@ -719,18 +774,18 @@ class Circuit<T> {
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).forward(30); // Test
         Point point = new Point(x, y);
         outputPositions.put(component, point); // die Koordinaten vom Ausgang gespeichert
-        System.out.println("Koordinaten Ausgang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten Ausgang: x = " + x + ", y = " + y);
         x -= 60;
         y -= 15;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).backward(30); // Test
         point = new Point(x, y);
         firstInputPositions.put(component, point); // die Koordinaten vom oberen Eingang gespeichert
-        System.out.println("Koordinaten oberen Eingang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten oberen Eingang: x = " + x + ", y = " + y);
         y += 30;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).backward(30); // Test
         point = new Point(x, y);
         secondInputPositions.put(component, point); // die Koordinaten vom unteren Eingang gespeichert
-        System.out.println("Koordinaten unteren Eingang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten unteren Eingang: x = " + x + ", y = " + y);
     }
 
     void saveEndingsOfnGate(int x, int y, T component) {
@@ -739,18 +794,18 @@ class Circuit<T> {
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).forward(30); // Test
         Point point = new Point(x, y);
         outputPositions.put(component, point); // die Koordinaten vom Ausgang gespeichert
-        System.out.println("Koordinaten Ausgang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten Ausgang: x = " + x + ", y = " + y);
         x -= 73;
         y -= 16;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).backward(30); // Test
         point = new Point(x, y);
         firstInputPositions.put(component, point); // Koordinaten vom oberen Eingang gespeichert
-        System.out.println("Koordinaten oberen Eingang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten oberen Eingang: x = " + x + ", y = " + y);
         y += 30;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).backward(30); // Test
         point = new Point(x, y);
         secondInputPositions.put(component, point); // Koordinaten vom unteren Eingang gespeichert
-        System.out.println("Koordinaten unteren Eingang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten unteren Eingang: x = " + x + ", y = " + y);
     }
 
     void saveEndingsOfNot(int x, int y, T component) {
@@ -759,13 +814,13 @@ class Circuit<T> {
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).forward(30); // Test
         Point point = new Point(x, y);
         outputPositions.put(component, point); // die Koordinaten vom Ausgang gespeichert
-        System.out.println("Koordinaten Ausgang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten Ausgang: x = " + x + ", y = " + y);
         x -= 73;
         y -= 1;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).backward(30); // Test
         point = new Point(x, y);
         firstInputPositions.put(component, point); // Koordinaten vom Eingang gespeichert
-        System.out.println("Koordinaten Eingang: x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten Eingang: x = " + x + ", y = " + y);
     }
 
     void saveEndingOfInput(int x, int y, T component) {
@@ -774,14 +829,37 @@ class Circuit<T> {
         // turtle1.moveTo(x, y).penDown().forward(30); // Test
         Point point = new Point(x, y);
         outputPositions.put(component, point); // die Koordinaten vom Ende des Input-Objekts gespeichert
-        System.out.println("Koordinaten Ausgang x = " + x + ", y = " + y);
+        if (!isRedrawing) System.out.println("Koordinaten Ausgang x = " + x + ", y = " + y);
+    }
+
+    // not-Output je nach Wert und Farbe zeichnen
+    void drawNotOutputWithValueAndColor(Gate gate) {
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().color(0, 150, 0).forward(5).left(90).forward(1).penUp().backward(5).text(" " + gate.output, null, 15, null).forward(5).right(90).color(0, 0, 0);
+    }
+
+    void drawNotOutputWithColor(Gate gate) {
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().color(0, 150, 0).forward(5).left(90).forward(1).right(90).color(0, 0, 0);
+    }
+
+    void drawNotOutputWithValue(Gate gate) {
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).penUp().backward(5).text(" " + gate.output, null, 15, null).forward(5).right(90);
+    }
+
+    void drawNotOutput(Gate gate) {
+        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
+        drawNotCircle();
+        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
     }
 
     // AND-Gate zeichnen
     void drawANDGate(T component) {
-        if (!(component instanceof Gate gate)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
@@ -791,18 +869,26 @@ class Circuit<T> {
         // Beschriftung 
         turtle1.penUp().forward(19).left(90).backward(18).text("&", null, 13, null).backward(7).right(90);
         // Output
-        turtle1.forward(31).penDown().forward(5);
-        // 2 Inputs
-        turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+        if (gate.output == 1) { // grün
+            if (!isSourceConnected(component)) turtle1.forward(31).penDown().color(0, 150, 0).forward(5).penUp().left(90).backward(4).text(" " + gate.output, null, 15, null).forward(4).right(90).color(0, 0, 0);
+            else turtle1.forward(31).penDown().color(0, 150, 0).forward(5).color(0, 0, 0); 
+        } else {
+            if (!isSourceConnected(component)) turtle1.forward(31).penDown().forward(5).penUp().left(90).backward(4).text(" " + gate.output, null, 15, null).forward(4).right(90);
+            else turtle1.forward(31).penDown().forward(5); 
+        }
+        // Input 1
+        if (gate.input1 == 1) turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp(); // grün
+        else turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp();
+        // Input 2
+        if (gate.input2 == 1) turtle1.backward(5).left(90).forward(30).right(90).penDown().color(0, 150, 0).forward(5).penUp().right(180).color(0, 0, 0); // grün
+        else turtle1.backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
         // Koordinaten des Ausgangs und der Eingänge abspeichern
         saveEndingsOfGate(x, y, component);
     }
 
     // OR-Gate zeichnen
     void drawORGate(T component) {
-        if (!(component instanceof Gate gate)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
@@ -812,18 +898,26 @@ class Circuit<T> {
         // Beschriftung
         turtle1.penUp().forward(17).left(90).backward(18).text("≥1", null, 13, null).backward(7).right(90);
         // Output
-        turtle1.forward(33).penDown().forward(5);
-        // 2 Inputs
-        turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+        if (gate.output == 1) { // grün
+            if (!isSourceConnected(component)) turtle1.forward(33).penDown().color(0, 150, 0).forward(5).penUp().left(90).backward(4).text(" " + gate.output, null, 15, null).forward(4).right(90).color(0, 0, 0);
+            else turtle1.forward(33).penDown().color(0, 150, 0).forward(5).color(0, 0, 0); 
+        } else {
+            if (!isSourceConnected(component)) turtle1.forward(33).penDown().forward(5).penUp().left(90).backward(4).text(" " + gate.output, null, 15, null).forward(4).right(90);
+            else turtle1.forward(33).penDown().forward(5); 
+        }
+        // Input 1
+        if (gate.input1 == 1) turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp(); // grün
+        else turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp();
+        // Input 2
+        if (gate.input2 == 1) turtle1.backward(5).left(90).forward(30).right(90).penDown().color(0, 150, 0).forward(5).penUp().right(180).color(0, 0, 0); // grün
+        else turtle1.backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
         // Koordinaten des Ausgangs und der Eingänge abspeichern
         saveEndingsOfGate(x, y, component);
     }
 
     // XOR-Gate zeichnen
     void drawXORGate(T component) {
-        if (!(component instanceof Gate gate)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
@@ -833,18 +927,26 @@ class Circuit<T> {
         // Beschriftung
         turtle1.penUp().forward(17).left(90).backward(18).text("=1", null, 13, null).backward(7).right(90);
         // Output
-        turtle1.forward(33).penDown().forward(5);
-        // 2 Inputs
-        turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+        if (gate.output == 1) { // grün
+            if (!isSourceConnected(component)) turtle1.forward(33).penDown().color(0, 150, 0).forward(5).penUp().left(90).backward(4).text(" " + gate.output, null, 15, null).forward(4).right(90).color(0, 0, 0);
+            else turtle1.forward(33).penDown().color(0, 150, 0).forward(5).color(0, 0, 0); 
+        } else {
+            if (!isSourceConnected(component)) turtle1.forward(33).penDown().forward(5).penUp().left(90).backward(4).text(" " + gate.output, null, 15, null).forward(4).right(90);
+            else turtle1.forward(33).penDown().forward(5); 
+        }
+        // Input 1
+        if (gate.input1 == 1) turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp(); // grün
+        else turtle1.penUp().backward(55).left(90).forward(15).left(90).penDown().forward(5).penUp();
+        // Input 2
+        if (gate.input2 == 1) turtle1.backward(5).left(90).forward(30).right(90).penDown().color(0, 150, 0).forward(5).penUp().right(180).color(0, 0, 0); // grün
+        else turtle1.backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
         // Koordinaten des Ausgangs und der Eingänge abspeichern
         saveEndingsOfGate(x, y, component);
     }
 
     // NAND-Gate zeichnen
     void drawNANDGate(T component) {
-        if (!(component instanceof Gate gate)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
@@ -853,21 +955,27 @@ class Circuit<T> {
         drawSmallSquare();
         // Beschriftung 
         turtle1.penUp().forward(19).left(90).backward(18).text("&", null, 13, null).backward(7).right(90);
-        // not-Output 
-        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
-        drawNotCircle();
-        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
-        // 2 Inputs
-        turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+        // not-Output
+        if (gate.output == 1) { // grün
+            if (!isSourceConnected(component)) drawNotOutputWithValueAndColor(gate);
+            else drawNotOutputWithColor(gate);
+        } else {
+            if (!isSourceConnected(component)) drawNotOutputWithValue(gate);  
+            else drawNotOutput(gate);
+        }
+        // Input 1 
+        if (gate.input1 == 1) turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp(); // grün
+        else turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp();
+        // Input 2 
+        if (gate.input2 == 1) turtle1.backward(5).left(90).forward(30).right(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp().right(180); // grün
+        else turtle1.backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
         // Koordinaten des Ausgangs und der Eingänge abspeichern
         saveEndingsOfnGate(x, y, component);
     }
 
     // NOR-Gate zeichnen
     void drawNORGate(T component) {
-        if (!(component instanceof Gate gate)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
@@ -877,20 +985,26 @@ class Circuit<T> {
         // Beschriftung 
         turtle1.penUp().forward(19).left(90).backward(18).text("≥1", null, 13, null).backward(7).right(90);
         // not-Output 
-        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
-        drawNotCircle();
-        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
-        // 2 Inputs
-        turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+        if (gate.output == 1) { // grün
+            if (!isSourceConnected(component)) drawNotOutputWithValueAndColor(gate);
+            else drawNotOutputWithColor(gate);
+        } else {
+            if (!isSourceConnected(component)) drawNotOutputWithValue(gate);  
+            else drawNotOutput(gate);
+        }
+        // Input 1 
+        if (gate.input1 == 1) turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp(); // grün
+        else turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp();
+        // Input 2 
+        if (gate.input2 == 1) turtle1.backward(5).left(90).forward(30).right(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp().right(180); // grün
+        else turtle1.backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
         // Koordinaten des Ausgangs und der Eingänge abspeichern
         saveEndingsOfnGate(x, y, component);
     }
 
     // XNOR-Gate zeichnen
     void drawXNORGate(T component) {
-        if (!(component instanceof Gate gate)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
@@ -900,20 +1014,26 @@ class Circuit<T> {
         // Beschriftung 
         turtle1.penUp().forward(19).left(90).backward(18).text("=1", null, 13, null).backward(7).right(90);
         // not-Output 
-        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
-        drawNotCircle();
-        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
-        // 2 Inputs
-        turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp().backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
+        if (gate.output == 1) { // grün
+            if (!isSourceConnected(component)) drawNotOutputWithValueAndColor(gate);
+            else drawNotOutputWithColor(gate);
+        } else {
+            if (!isSourceConnected(component)) drawNotOutputWithValue(gate);  
+            else drawNotOutput(gate);
+        }
+        // Input 1 
+        if (gate.input1 == 1) turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp(); // grün
+        else turtle1.penUp().backward(68).left(90).forward(15).left(90).penDown().forward(5).penUp();
+        // Input 2 
+        if (gate.input2 == 1) turtle1.backward(5).left(90).forward(30).right(90).penDown().color(0, 150, 0).forward(5).color(0, 0, 0).penUp().right(180); // grün
+        else turtle1.backward(5).left(90).forward(30).right(90).penDown().forward(5).penUp().right(180);
         // Koordinaten des Ausgangs und der Eingänge abspeichern
         saveEndingsOfnGate(x, y, component);
     }
 
     // NOT-Gate zeichnen
     void drawNOTGate(T component) {
-        if (!(component instanceof Gate gate)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
@@ -923,28 +1043,32 @@ class Circuit<T> {
         // Beschriftung 
         turtle1.penUp().forward(19).left(90).backward(18).text(" 1", null, 13, null).backward(7).right(90);
         // not-Output 
-        turtle1.forward(31).forward(6).left(90).forward(5).right(90).penDown();
-        drawNotCircle();
-        turtle1.penUp().backward(6).left(90).backward(6).right(90).forward(13).penDown().forward(5).left(90).forward(1).right(90);
-        // 1 Input
-        turtle1.penUp().backward(68).penDown().backward(5).penUp();
+        if (gate.output == 1) { // grün
+            if (!isSourceConnected(component)) drawNotOutputWithValueAndColor(gate);
+            else drawNotOutputWithColor(gate);
+        } else {
+            if (!isSourceConnected(component)) drawNotOutputWithValue(gate);  
+            else drawNotOutput(gate);
+        }
+        // nur Input 1
+        if (gate.input1 == 1) turtle1.penUp().backward(68).penDown().color(0, 150, 0).backward(5).penUp().color(0, 0, 0);
+        else turtle1.penUp().backward(68).penDown().backward(5).penUp();
+        
         // Koordinaten des Ein- und Ausgangs abspeichern
         saveEndingsOfNot(x, y, component);
     }
 
     // Input in der ersten Spalte zeichnen
     void drawInput(T component) { 
-        if (!(component instanceof Input input)) {
-            throw new IllegalArgumentException("Komponente ist kein Input.");
-        }
+        if (!(component instanceof Input input)) throw new IllegalArgumentException("Komponente ist kein Input.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
         int y = getPixelPositionY(component);
         // Benennung
         turtle1.penUp().forward(15).left(90).backward(20).text(input.getInputName(), null, 14, null).right(90).backward(15);
-        if (input.getInputValue() == 1) {
+        if (input.inputValue == 1) {
             // Input-Wert bei 1 grün
-            turtle1.left(90).backward(10).color(0, 255, 0).text("" + input.getInputValue(), null, 15, null).forward(3).right(90).forward(10);
+            turtle1.left(90).backward(10).color(0, 150, 0).text("" + input.inputValue, null, 15, null).forward(3).right(90).forward(10);
             // Input-Objekt bei 1 grün
             turtle1.penDown().forward(40).penUp().color(0, 0, 0);
         } else {
@@ -961,12 +1085,10 @@ class Circuit<T> {
 class Gate {
     private String type;
     private String name;
-    private int input1;
-    private int input2;
-    private int output;
-    Point input1Position;
-    Point input2Position;
-    Point outputPosition;
+    int input1;
+    int input2;
+    int output;
+    
 
     // Konstruktor
     Gate(String type, String name) {
@@ -975,16 +1097,16 @@ class Gate {
         this.output = inputToOutput();
     }
 
-    // wandelt den input je nach Logik in output um
+    // wandelt den Input je nach Logik in Output um
     int inputToOutput() {
         output = switch (type) {
             case "AND" -> this.input1 & this.input2;
             case "OR" -> this.input1 | this.input2;
             case "XOR" -> this.input1 ^ this.input2;
-            case "NAND" -> ~(this.input1 & this.input2);
-            case "NOR" -> ~(this.input1 | this.input2);
-            case "XNOR" -> ~(this.input1 ^ this.input2);
-            case "NOT" -> ~this.input1;
+            case "NAND" -> (this.input1 & this.input2) == 1 ? 0 : 1;
+            case "NOR" -> (this.input1 | this.input2) == 1 ? 0 : 1;
+            case "XNOR" -> (this.input1 ^ this.input2) == 0 ? 1 : 0;
+            case "NOT" -> this.input1 == 1 ? 0 : 1;
             default -> throw new IllegalArgumentException("Unbekannter Gate-Typ: " + type);
         };
         return output;
@@ -1000,20 +1122,15 @@ class Gate {
         return this.name;
     }
 
-    // Output-Wert abrufen
-    int getOutputValue() {
-        return this.output;
+    // Inputs setzten
+    void setInput1(int value) {
+        this.input1 = value;
     }
 
-    // ersten Input-Wert abrufen
-    int getInputValue1() {
-        return this.input1;
+    void setInput2(int value) {
+        this.input2 = value;
     }
 
-    // zweiten Input-Wert abrufen
-    int getInputValue2() {
-        return this.input2;
-    }
 
     @Override
     public String toString() {
@@ -1042,11 +1159,6 @@ class Input {
     // Nanme für die Zuordnung
     String getInputName() {
         return this.name;
-    }
-
-    // geschaltenen Wert abrufen
-    int getInputValue() {
-        return this.inputValue;
     }
 
     @Override
@@ -1151,14 +1263,19 @@ c1.connectComponents(andGate1, xorGate1, 1);
 Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
 Input input1 = new Input("x1", 1);
 Input input2 = new Input("x2", 1);
-Gate xorGate1 = new Gate("xor", "xorGate1");
-Gate andGate1 = new Gate("and", "andGate1");
+Gate notGate1 = new Gate("not", "notGate1");
+Gate nandGate1 = new Gate("nand", "nandGate1");
 c1.addComponent(2, 1, input1);
 c1.addComponent(3, 1, input2);
-c1.addComponent(2, 3, xorGate1);
-c1.addComponent(4, 3, andGate1);
-c1.connectComponents(input1, xorGate1, 1);
-c1.connectComponents(input2, xorGate1, 2);
-c1.connectComponents(input1, andGate1, 1);
-c1.connectComponents(input2, andGate1, 2);
+c1.addComponent(2, 3, notGate1);
+c1.addComponent(4, 3, nandGate1);
+c1.connectComponents(input1, notGate1, 1);
+c1.connectComponents(input2, norGate1, 2);
+c1.connectComponents(input1, nandGate1, 1);
+c1.connectComponents(input2, nandGate1, 2);
+
+Gate xnorGate1 = new Gate("xnor", "xnorGate1");
+c1.addComponent(2, 4, xnorGate1);
+c1.connectComponents(norGate1, xnorGate1, 2);
+c1.connectComponents(nandGate1, xnorGate1, 1);
 */
