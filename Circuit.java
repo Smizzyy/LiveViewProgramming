@@ -15,8 +15,9 @@ class Circuit<T> {
     private List<Connection<T>> connections; // Liste der verbundenen Komponente 
     private List<Point> wirePoints = new ArrayList<>(); // speichert die Punkte ab, wo sich ein Kabel befindet
     private Turtle turtle1;
-    private int width = 1700;
-    private int height = 1700;
+    private Turtle turtle2;
+    private int width = 1550;
+    private int height = 1050;
     // Versetzung des Kabels 
     private int offsetX = 5; 
     private int offsetY = 5;
@@ -25,6 +26,7 @@ class Circuit<T> {
     // Konstruktor
     Circuit(String name, int cols, int rows) {
         this.turtle1 = new Turtle(this.width, this.height);
+        this.turtle2 = new Turtle(1550, 1000);
         this.components = new HashMap<>();
         this.firstInputPositions = new HashMap<>();
         this.secondInputPositions = new HashMap<>();
@@ -92,6 +94,87 @@ class Circuit<T> {
         }
         turtle1.color(0, 0, 0);
     }
+
+    void drawTable() {
+        turtle2.reset();
+        // Tabellemgitter zeichnen
+        drawTableFrame();
+        
+        // Inputs-Kombinationen schreiben
+        drawInputValuesInTable();
+
+        // Gate-Outputs-Kombinationen schreiben
+
+    }
+
+    // Tabelle zeichnen
+    void drawTableFrame() {
+        // Anzahl der Verbindungen abspeichern
+        int connectionsAmount = connections.size();
+        int rowHeight = 60;
+        int cases = 2;
+        
+        // Anzahl der Inputs abspeichern
+        List<Input> inputs = new ArrayList<>();
+        for (T component : components.values()) if (component instanceof Input input) inputs.add(input);
+        int inputsAmount = inputs.size();
+        int totalRows = (int) Math.pow(2, inputsAmount); // Anzahl der Spalten in Abhängigkeit von der Anzahl der Inputs berechnen
+        int tableHeight = rowHeight * totalRows; // Höhe der Tabelle bestimmen in Abhängigkeit der Anzahl von Inputs 
+
+        // Input-Teil der Tabelle zeichnen
+        turtle2.moveTo(0, 0).penUp().right(90).forward(40).left(90).forward(10).penDown();
+        for (int i = 0; i < inputsAmount; i++) 
+            turtle2.forward(30).right(90).forward(tableHeight).penUp().backward(tableHeight).penDown().backward(30).penUp().forward(30).left(90).penDown();
+        turtle2.forward(5);
+    }
+
+    // Inputs-Kombinationen schreiben
+    void drawInputValuesInTable() {
+        // Anzahl der Verbindungen abspeichern
+        List<Input> inputs = new ArrayList<>();
+        for (T component : components.values()) if (component instanceof Input input) inputs.add(input);
+        int inputsAmount = inputs.size();
+
+        // Liste all der Kombinationen abspeichern
+        List<List<Integer>> combinations = generateInputCombinations(inputsAmount);
+
+        // Input-Namen
+        turtle2.moveTo(20, 30).penUp(); // Start
+        for (int i = 0; i < inputsAmount; i++)
+            turtle2.left(90).text("" + inputs.get(i).getInputName(), null, 13, null).right(90).forward(30);
+
+        // Input-Kombinationen
+        turtle2.moveTo(20, 75).penUp(); // Start
+        for (int i = 0; i < combinations.size(); i++) {
+            List<Integer> combination = combinations.get(i);
+            for (int j = 0; j < combination.size(); j++) {
+                int value = combination.get(j);
+                System.out.println(value);
+                // Werte in die Tabelle schreiben
+                turtle2.left(90).text("" + value, null, 14, null).right(90).forward(30);
+                if ((j + 1) % inputsAmount == 0) turtle2.backward(inputsAmount * 30).right(90).moveTo(20, 75 + ((i + 1) * 60)).left(90);
+            }
+        }
+    }
+
+    // Generierung der Wahrheitstabelle für alle Inputs
+    List<List<Integer>> generateInputCombinations(int numberOfInputs) {
+        List<List<Integer>> combinations = new ArrayList<>();
+        int totalCombinations = (int) Math.pow(2, numberOfInputs); // 2^numberOfInputs
+
+        for (int i = 0; i < totalCombinations; i++) { 
+            List<Integer> combination = new ArrayList<>(); 
+            for (int j = numberOfInputs - 1; j >= 0; j--) { // Bits werden von links nach rechts betrachtet
+                int bit = (i >> j) & 1; // Beispiel für i = 1 und zwei Inputs: (1 >> 1) & 1 = 0, (1 >> 0) & 1 = 1
+                combination.add(bit);
+            }
+            System.out.println(combination);
+            combinations.add(combination);
+
+        }
+        return combinations;
+    }
+
 
     // Spalten hinzufügen
     void addColumn(int count) {
@@ -1278,4 +1361,15 @@ Gate xnorGate1 = new Gate("xnor", "xnorGate1");
 c1.addComponent(2, 4, xnorGate1);
 c1.connectComponents(norGate1, xnorGate1, 2);
 c1.connectComponents(nandGate1, xnorGate1, 1);
+*/
+
+/*
+Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
+Input input1 = new Input("x1", 1);
+Input input2 = new Input("x2", 1);
+c1.addComponent(2, 1, input1);
+c1.addComponent(3, 1, input2);
+Input input3 = new Input("x3", 1);
+c1.addComponent(4, 1, input3);
+c1.drawTable();
 */
