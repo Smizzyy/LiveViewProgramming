@@ -112,7 +112,6 @@ class Circuit<T> {
         // Anzahl der Verbindungen abspeichern
         int connectionsAmount = connections.size();
         int rowHeight = 60;
-        int cases = 2;
         
         // Anzahl der Inputs abspeichern
         List<Input> inputs = new ArrayList<>();
