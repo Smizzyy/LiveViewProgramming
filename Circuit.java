@@ -3,7 +3,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.awt.Rectangle;
+
 
 class Circuit<T> {
     private int maxRows; 
@@ -16,8 +19,8 @@ class Circuit<T> {
     private List<Point> wirePoints = new ArrayList<>(); // speichert die Punkte ab, wo sich ein Kabel befindet
     private Turtle turtle1;
     private Turtle turtle2;
-    private int width = 1550;
-    private int height = 1050;
+    private int width = 1600;
+    private int height = 700;
     // Versetzung des Kabels 
     private int offsetX = 5; 
     private int offsetY = 5;
@@ -26,7 +29,7 @@ class Circuit<T> {
     // Konstruktor
     Circuit(String name, int cols, int rows) {
         this.turtle1 = new Turtle(this.width, this.height);
-        this.turtle2 = new Turtle(1550, 1000);
+        this.turtle2 = new Turtle(1600, 1000);
         this.components = new HashMap<>();
         this.firstInputPositions = new HashMap<>();
         this.secondInputPositions = new HashMap<>();
@@ -104,13 +107,22 @@ class Circuit<T> {
         drawInputValuesInTable();
 
         // Gate-Outputs-Kombinationen schreiben
-
+        drawOuputValuesInTable();
     }
 
     // Tabelle zeichnen
     void drawTableFrame() {
         // Anzahl der Verbindungen abspeichern
-        int connectionsAmount = connections.size();
+        long outputCount = connections.stream()
+            .map(conn -> conn.destination) // Nur die Zielkomponenten betrachten
+            .distinct() // Doppelte entfernen
+            .count(); // Zählen
+        outputCount = (int) outputCount; 
+        if (outputCount > 6) {
+            printConnections();
+            throw new IllegalArgumentException("Eine Auswertung ist nur mit bis zu sechs Verbinudungen möglich.");
+        }  
+
         int rowHeight = 60;
         
         // Anzahl der Inputs abspeichern
@@ -125,6 +137,10 @@ class Circuit<T> {
         for (int i = 0; i < inputsAmount; i++) 
             turtle2.forward(30).right(90).forward(tableHeight).penUp().backward(tableHeight).penDown().backward(30).penUp().forward(30).left(90).penDown();
         turtle2.forward(5);
+
+        // Output-Teil der Tabelle zeichnen
+        for (int i = 0; i < outputCount; i++) 
+            turtle2.left(90).forward(30).penUp().backward(30).penDown().backward(tableHeight).penUp().forward(tableHeight).right(90).penDown().forward(230);      
     }
 
     // Inputs-Kombinationen schreiben
@@ -148,12 +164,29 @@ class Circuit<T> {
             List<Integer> combination = combinations.get(i);
             for (int j = 0; j < combination.size(); j++) {
                 int value = combination.get(j);
-                System.out.println(value);
                 // Werte in die Tabelle schreiben
                 turtle2.left(90).text("" + value, null, 14, null).right(90).forward(30);
                 if ((j + 1) % inputsAmount == 0) turtle2.backward(inputsAmount * 30).right(90).moveTo(20, 75 + ((i + 1) * 60)).left(90);
             }
         }
+    }
+
+    // Alle Outputs der Wahrheitstabelle
+    void drawOuputValuesInTable() {
+        List<String> logicExpressions = new ArrayList<>();
+        logicExpressions = getConnectionLogicStrings();
+
+        List<Input> inputs = new ArrayList<>();
+        for (T component : components.values()) if (component instanceof Input input) inputs.add(input);
+
+        // Namen der Logik
+        long outputCount = connections.stream()
+            .map(conn -> conn.destination)
+            .distinct()
+            .count();
+        outputCount = (int) outputCount;
+        turtle2.moveTo(10, 30).penUp().forward(inputs.size() * 30 + 10);
+        for (int i = 0; i < outputCount; i++) turtle2.left(90).text("" + logicExpressions.get(i), null, 13, null).right(90).forward(230);
     }
 
     // Generierung der Wahrheitstabelle für alle Inputs
@@ -167,13 +200,78 @@ class Circuit<T> {
                 int bit = (i >> j) & 1; // Beispiel für i = 1 und zwei Inputs: (1 >> 1) & 1 = 0, (1 >> 0) & 1 = 1
                 combination.add(bit);
             }
-            System.out.println(combination);
             combinations.add(combination);
 
         }
         return combinations;
     }
 
+    // Name der Verbindungen abrufen
+    List<String> getConnectionLogicStrings() {
+        List<String> logicExpressions = new ArrayList<>();
+
+        // Nur einzigartige Zielkomponenten (Outputs) betrachten
+        Set<T> outputComponents = connections.stream()
+            .map(conn -> conn.destination)  // nur Ziele betrachten
+            .collect(Collectors.toSet());  // Duplikate entfernen 
+
+        for (T componet : outputComponents) {
+            if (componet instanceof Gate gate) {
+                String gateName = gate.getName(); // Name des Gates
+                String gateType = gate.getType(); // Typ des Gates
+
+                // beide Eingänge des Gates ermitteln
+                String input1Name = getInputComponentName(gate, 1);
+                String input2Name = getInputComponentName(gate, 2);
+
+                // Logik-Ausdruck zusammensetzen
+                String logicExpression = gateName + " = " + input1Name + " " + gateType + " " + input2Name;
+                System.out.println(logicExpression);
+                logicExpressions.add(logicExpression);
+            }
+        }
+        return logicExpressions;
+    }
+
+    String getInputComponentName(Gate gate, int inputNumber) {
+        for (Connection<T> conn : connections) {
+            if (conn.destination.equals(gate) && conn.inputNumber == inputNumber)
+                if (conn.source instanceof Input input) return input.getInputName(); // Name des Inputs
+                else if (conn.source instanceof Gate sourcGate) return sourcGate.getName(); // Name als Quelle kommende Gate
+        }
+        return "undefined";
+    }
+
+    List<List<Integer>> evaluateLogicForAllInputs() {
+        // alle Input-Komponenten sammeln
+        List<T> inputList = components.values().stream()
+            .filter(component -> component instanceof Input) // filter nur Input-Objekte
+            .collect(Collectors.toList()); // sammelt alle Inputs und fügt sie der Liste hinzu
+        int inputCount = inputList.size();
+
+        List<List<Integer>> allResults = new ArrayList<>(); 
+
+        // alle möglichen Kombinationen von Inputs generieren
+        List<List<Integer>> inputCombinations = generateInputCombinations(inputCount); 
+
+        // über alle Kombinationen iterieren
+        for (List<Integer> combination : inputCombinations) {
+            // Inputs setzen
+            for (int i = 0; i < inputCount; i++) setInput(inputList.get(i), combination.get(i));
+       
+            // Schaltung evaluieren
+            evaluateCircuit();
+
+            // TODO: ändern
+            // Ergebnisse dieser Kombination speichern
+            List<Integer> resultRow = new ArrayList<>();
+            for (Connection<T> conn : connections) if (conn.destination instanceof Gate gate) resultRow.add(gate.output);
+            
+            // Ergebnisse speichern
+            allResults.add(resultRow);
+        }
+        return allResults;
+    }
 
     // Spalten hinzufügen
     void addColumn(int count) {
@@ -706,13 +804,10 @@ class Circuit<T> {
 
         if (value != 0 && value != 1) throw new IllegalArgumentException("Bitte nur 1 oder 0 schalten.");
         if (component instanceof Input inputComponent) {
-            if (inputComponent.inputValue != value) {
-                inputComponent.inputValue = value; // Eingang wird umgeschaltet
-                System.out.println(inputComponent.getInputName() + " wurde auf " + inputComponent.inputValue + " geschaltet."); 
-                evaluateCircuit();
-                drawNewCircuit();
-            } else throw new IllegalArgumentException("Dieser Einagng hat schon den Wert " + inputComponent.inputValue);
-            
+            inputComponent.inputValue = value; // Eingang wird umgeschaltet
+            System.out.println(inputComponent.getInputName() + " wurde auf " + inputComponent.inputValue + " geschaltet."); 
+            evaluateCircuit();
+            drawNewCircuit();
         } else throw new IllegalArgumentException("Fehler: Nicht kompatible Komponente. Bitte Input-Komponente angeben.");
         
         isRedrawing = false;
@@ -1342,16 +1437,16 @@ c1.connectComponents(andGate1, xorGate1, 1);
 */
 
 /* Halfadder
-Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
+Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 6);
 Input input1 = new Input("x1", 1);
 Input input2 = new Input("x2", 1);
-Gate notGate1 = new Gate("not", "notGate1");
+Gate norGate1 = new Gate("nor", "norGate1");
 Gate nandGate1 = new Gate("nand", "nandGate1");
 c1.addComponent(2, 1, input1);
 c1.addComponent(3, 1, input2);
-c1.addComponent(2, 3, notGate1);
+c1.addComponent(2, 3, norGate1);
 c1.addComponent(4, 3, nandGate1);
-c1.connectComponents(input1, notGate1, 1);
+c1.connectComponents(input1, norGate1, 1);
 c1.connectComponents(input2, norGate1, 2);
 c1.connectComponents(input1, nandGate1, 1);
 c1.connectComponents(input2, nandGate1, 2);
@@ -1363,12 +1458,18 @@ c1.connectComponents(nandGate1, xnorGate1, 1);
 */
 
 /*
-Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
+Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 6);
 Input input1 = new Input("x1", 1);
 Input input2 = new Input("x2", 1);
+Gate norGate1 = new Gate("nor", "norGate1");
+Gate nandGate1 = new Gate("nand", "nandGate1");
 c1.addComponent(2, 1, input1);
 c1.addComponent(3, 1, input2);
-Input input3 = new Input("x3", 1);
-c1.addComponent(4, 1, input3);
+c1.addComponent(2, 3, norGate1);
+c1.addComponent(4, 3, nandGate1);
+c1.connectComponents(input1, norGate1, 1);
+c1.connectComponents(input2, norGate1, 2);
+c1.connectComponents(input1, nandGate1, 1);
+c1.connectComponents(input2, nandGate1, 2);
 c1.drawTable();
 */
