@@ -1,14 +1,23 @@
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.awt.Rectangle;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 
-class Circuit<T> {
+class Circuit<T> implements Serializable {
+    private static final long serialVersionUID = 1L;
     private int maxRows; 
     private int maxCols;
     private Map<Point, T> components; // key: Punkt, value: Komponente 
@@ -17,8 +26,8 @@ class Circuit<T> {
     private Map<T, Point> outputPositions; // key: Komponente, value: Punkt
     private List<Connection<T>> connections; // Liste der verbundenen Komponente 
     private List<Point> wirePoints = new ArrayList<>(); // speichert die Punkte ab, wo sich ein Kabel befindet
-    private Turtle turtle1;
-    private Turtle turtle2;
+    private transient Turtle turtle1;
+    private transient Turtle turtle2;
     private int width = 1600;
     private int height = 700;
     // Versetzung des Kabels 
@@ -39,6 +48,27 @@ class Circuit<T> {
         this.maxCols = cols;
         this.maxRows = rows;
         drawCircuitField();
+    }
+
+    // Konstruktor zum Laden
+    Circuit(String name, String fileName) {
+        Circuit<T> loadedCircuit = loadCircuit(fileName);
+        if (loadedCircuit != null) {
+            this.turtle1 = new Turtle(this.width, this.height);
+            this.turtle2 = new Turtle(1600, 1000);
+            this.components = loadedCircuit.components;
+            this.firstInputPositions = loadedCircuit.firstInputPositions;
+            this.secondInputPositions = loadedCircuit.secondInputPositions;
+            this.outputPositions = loadedCircuit.outputPositions;
+            this.connections = loadedCircuit.connections;
+            this.wirePoints = loadedCircuit.wirePoints;
+            this.maxCols = loadedCircuit.maxCols;
+            this.maxRows = loadedCircuit.maxRows;
+            this.offsetX = loadedCircuit.offsetX;
+            this.offsetY = loadedCircuit.offsetY;
+            drawNewCircuit();
+            
+        } else System.err.println("Falscher Dateiname " + fileName);
     }
 
     // einzelenes Quadrat im Feld
@@ -98,6 +128,7 @@ class Circuit<T> {
         turtle1.color(0, 0, 0);
     }
 
+    // gesamte Wahrheitstabelle zeichnen lassen
     void drawTable() {
         turtle2.reset();
         // Tabellemgitter zeichnen
@@ -173,8 +204,8 @@ class Circuit<T> {
 
     // Alle Outputs der Wahrheitstabelle
     void drawOuputValuesInTable() {
-        List<String> logicExpressions = new ArrayList<>();
-        logicExpressions = getConnectionLogicStrings();
+        List<String> logicExpressions = getConnectionLogicStrings();
+        List<List<Integer>> allOutputCombinations = evaluateLogicForAllInputs();
 
         List<Input> inputs = new ArrayList<>();
         for (T component : components.values()) if (component instanceof Input input) inputs.add(input);
@@ -187,6 +218,18 @@ class Circuit<T> {
         outputCount = (int) outputCount;
         turtle2.moveTo(10, 30).penUp().forward(inputs.size() * 30 + 10);
         for (int i = 0; i < outputCount; i++) turtle2.left(90).text("" + logicExpressions.get(i), null, 13, null).right(90).forward(230);
+
+        // alle kombinierten Outputs
+        turtle2.moveTo(110 + (15 + 30 * inputs.size()), 75).penUp(); // Start
+        for (int i = 0; i < allOutputCombinations.size(); i++) {
+            List<Integer> outputCombination = allOutputCombinations.get(i);
+            for (int j = 0; j < outputCombination.size(); j++) {
+                int value = outputCombination.get(j);
+                // Output-Werte in die Tabelle schreiben
+                turtle2.left(90).text("" + value, null, 14, null).right(90).forward(230);
+                if ((j + 1) % outputCount == 0) turtle2.backward(outputCount + 230).right(90).moveTo(110 + (15 + 30 * inputs.size()), 75 + ((i + 1) * 60)).left(90);
+            }
+        }
     }
 
     // Generierung der Wahrheitstabelle für alle Inputs
@@ -208,15 +251,13 @@ class Circuit<T> {
 
     // Name der Verbindungen abrufen
     List<String> getConnectionLogicStrings() {
+        // Sortierte Outputs abrufen
+        List<T> sortedOutputs = getSortedOutputs();
+
         List<String> logicExpressions = new ArrayList<>();
 
-        // Nur einzigartige Zielkomponenten (Outputs) betrachten
-        Set<T> outputComponents = connections.stream()
-            .map(conn -> conn.destination)  // nur Ziele betrachten
-            .collect(Collectors.toSet());  // Duplikate entfernen 
-
-        for (T componet : outputComponents) {
-            if (componet instanceof Gate gate) {
+        for (T output : sortedOutputs) {
+            if (output instanceof Gate gate) {
                 String gateName = gate.getName(); // Name des Gates
                 String gateType = gate.getType(); // Typ des Gates
 
@@ -242,6 +283,7 @@ class Circuit<T> {
         return "undefined";
     }
 
+    // Generierung der Wahrheitstabelle für alle Outputs
     List<List<Integer>> evaluateLogicForAllInputs() {
         // alle Input-Komponenten sammeln
         List<T> inputList = components.values().stream()
@@ -254,24 +296,62 @@ class Circuit<T> {
         // alle möglichen Kombinationen von Inputs generieren
         List<List<Integer>> inputCombinations = generateInputCombinations(inputCount); 
 
+        // sortierte Gates
+        List<T> sortedOutputs = getSortedOutputs();
+
         // über alle Kombinationen iterieren
         for (List<Integer> combination : inputCombinations) {
-            // Inputs setzen
-            for (int i = 0; i < inputCount; i++) setInput(inputList.get(i), combination.get(i));
-       
-            // Schaltung evaluieren
+            
+            // Eingänge setzten
+            for (int i = 0; i < inputCount; i++) {
+                Input input = (Input) inputList.get(i);
+                int value = combination.get(i);
+
+                // nur setzem, wenn der Wert sich geändert hat
+                if (input.inputValue != value) input.inputValue = value;
+            }
+            
+            // Schaltung auswerten
             evaluateCircuit();
 
-            // TODO: ändern
-            // Ergebnisse dieser Kombination speichern
+            // Ergebnisse der Gates in der Reihenfolge speichern
             List<Integer> resultRow = new ArrayList<>();
-            for (Connection<T> conn : connections) if (conn.destination instanceof Gate gate) resultRow.add(gate.output);
+            for (T output : sortedOutputs) 
+                if (output instanceof Gate gate) 
+                    resultRow.add(gate.output);
             
-            // Ergebnisse speichern
-            allResults.add(resultRow);
+            // Ergebnis zur Auswertungsliste hinzufügen
+            allResults.add(resultRow);        
         }
+        
         return allResults;
     }
+
+    // Liste von rechts nach links sortierten Gates rausbekommen
+    List<T> getSortedOutputs() {
+        List<T> sortedOutputs = new ArrayList<>();
+        Set<T> visited = new HashSet<>();
+
+        for (Connection<T> connection : connections) {
+            T destination = connection.destination;
+            if (!visited.contains(destination)) sortHelper(destination, visited, sortedOutputs); // wenn das Ziel noch nicht besucht wurde
+        }
+
+        Collections.reverse(sortedOutputs); // Ergebnis umdrehen
+        return sortedOutputs; 
+    }
+
+    // schaut ob, eine Komponente Quelle in der Verbindung ist und holt sich davon das Ziel nur einmal raus
+    void sortHelper(T component, Set<T> visited, List<T> sortedOutputs) {
+        visited.add(component); // als besucht markiert, damit die Komponenete nicht noch mal bearbeitet wird
+
+        for (Connection<T> connection : connections) 
+            // wenn aktuelle Komponente die Quelle einer Verbindung ist und noch nicht besucht wurde
+            if (connection.source.equals(component) && !visited.contains(connection.destination)) 
+                sortHelper(connection.destination, visited, sortedOutputs); // wird rekursiv für die Zielkomponente aufgerufen 
+
+        if (component instanceof Gate) sortedOutputs.add(component); // nur Gates        
+    }    
 
     // Spalten hinzufügen
     void addColumn(int count) {
@@ -413,7 +493,7 @@ class Circuit<T> {
     }
 
     // Komponente verbinden
-    void connectComponents(T sourceComponent, T destinationComponent, int inputNumber) {
+    void connectComponents(T sourceComponent, T destinationComponent, int inputNumber) {        
         // Position prüfen
         if (!isValidConnection(sourceComponent, destinationComponent)) return;
         
@@ -526,7 +606,7 @@ class Circuit<T> {
         // y-Offset anwenden  
         startY = applyDetourIfNeeded(detourNeeded, applyYOffset, startY, endY);
 
-        if (compareXPositions(sourceComponent, destinationComponent)) offsetX = 5; // damit offsetX nicht zu sehr wächst
+        if (compareXPositions(sourceComponent, destinationComponent) && !applyYOffset) offsetX = 5; // damit offsetX nicht zu sehr wächst
 
         if ((sourceComponent instanceof Gate gate && gate.output == 1) || (sourceComponent instanceof Input input && input.inputValue == 1)) turtle1.color(0, 150, 0); // Kabel grün bei input == 1
 
@@ -1256,15 +1336,39 @@ class Circuit<T> {
         }
         saveEndingOfInput(x, y, component);
     }
+
+    // Schaltkreis speichern
+    void saveCircuit(String fileName) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
+            oos.writeObject(this); 
+            System.out.println("Datei " + fileName +" wurde gespeichert.");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Methode, die gespeicherte Objekte lädt
+    @SuppressWarnings("unchecked")
+    public Circuit<T> loadCircuit(String filename) {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(filename))) {
+            Circuit <T> loadedCircuit = (Circuit<T>) ois.readObject();
+        return loadedCircuit;
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }
 
 // Gatter mit verschiedener Logik
-class Gate {
+class Gate implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String type;
     private String name;
-    int input1;
-    int input2;
-    int output;
+    public int input1;
+    public int input2;
+    public int output;
     
 
     // Konstruktor
@@ -1316,9 +1420,11 @@ class Gate {
 }
 
 // Eingänge zum Schalten
-class Input {
+class Input implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
     private String name;
-    int inputValue;
+    public int inputValue;
 
     // Konstruktor mit direkter Input-Eingabe
     Input(String name, int inputValue) {
@@ -1345,10 +1451,12 @@ class Input {
 }
 
 // Verbindungen
-class Connection<T> {
-    T source;
-    T destination;
-    int inputNumber;
+class Connection<T> implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
+    public T source;
+    public T destination;
+    public int inputNumber;
 
     Connection(T source, T destination, int inputNumber) {
         this.source = source;
@@ -1437,30 +1545,30 @@ c1.connectComponents(andGate1, xorGate1, 1);
 */
 
 /* Halfadder
-Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 6);
-Input input1 = new Input("x1", 1);
-Input input2 = new Input("x2", 1);
-Gate norGate1 = new Gate("nor", "norGate1");
-Gate nandGate1 = new Gate("nand", "nandGate1");
-c1.addComponent(2, 1, input1);
-c1.addComponent(3, 1, input2);
-c1.addComponent(2, 3, norGate1);
-c1.addComponent(4, 3, nandGate1);
-c1.connectComponents(input1, norGate1, 1);
-c1.connectComponents(input2, norGate1, 2);
-c1.connectComponents(input1, nandGate1, 1);
-c1.connectComponents(input2, nandGate1, 2);
+Circuit<Object> c1 = new Circuit<>("Half-Adder", 15, 6);
 
-Gate xnorGate1 = new Gate("xnor", "xnorGate1");
-c1.addComponent(2, 4, xnorGate1);
-c1.connectComponents(norGate1, xnorGate1, 2);
-c1.connectComponents(nandGate1, xnorGate1, 1);
+Input x1 = new Input("x1", 0); 
+Input x2 = new Input("x2", 0);
+
+Gate xorGate = new Gate("XOR", "Summe");
+Gate andGate = new Gate("AND", "Übertrag");
+
+c1.addComponent(2, 1, x1);
+c1.addComponent(3, 1, x2);
+c1.addComponent(2, 3, xorGate);
+c1.addComponent(4, 3, andGate);
+
+c1.connectComponents(x1, xorGate, 1); 
+c1.connectComponents(x2, xorGate, 2);  
+c1.connectComponents(x1, andGate, 1);  
+c1.connectComponents(x2, andGate, 2);  
+c1.drawTable();
 */
 
 /*
 Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 6);
-Input input1 = new Input("x1", 1);
-Input input2 = new Input("x2", 1);
+Input input1 = new Input("x1", 0);
+Input input2 = new Input("x2", 0);
 Gate norGate1 = new Gate("nor", "norGate1");
 Gate nandGate1 = new Gate("nand", "nandGate1");
 c1.addComponent(2, 1, input1);
