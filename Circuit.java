@@ -14,26 +14,27 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Objects;
 
 
 class Circuit<T> implements Serializable {
     private static final long serialVersionUID = 1L;
-    private int maxRows; 
-    private int maxCols;
-    private Map<Point, T> components; // key: Punkt, value: Komponente 
-    private Map<T, Point> firstInputPositions; // key: Komponente, value: Punkt
-    private Map<T, Point> secondInputPositions; // key: Komponente, value: Punkt
-    private Map<T, Point> outputPositions; // key: Komponente, value: Punkt
-    private List<Connection<T>> connections; // Liste der verbundenen Komponente 
-    private List<Point> wirePoints = new ArrayList<>(); // speichert die Punkte ab, wo sich ein Kabel befindet
-    private transient Turtle turtle1;
-    private transient Turtle turtle2;
-    private int width = 1600;
-    private int height = 700;
-    // Versetzung des Kabels 
-    private int offsetX = 5; 
-    private int offsetY = 5;
-    private boolean isRedrawing = false;
+    int maxRows; 
+    int maxCols;
+    Map<Point, T> components; // key: Punkt, value: Komponente 
+    Map<T, Point> firstInputPositions; // key: Komponente, value: Punkt
+    Map<T, Point> secondInputPositions; // key: Komponente, value: Punkt
+    Map<T, Point> outputPositions; // key: Komponente, value: Punkt
+    List<Connection<T>> connections; // Liste der verbundenen Komponente 
+    List<Point> wirePoints; // speichert die Punkte ab, wo sich ein Kabel befindet
+    transient Turtle turtle1;
+    transient Turtle turtle2;
+    int width = 1600;
+    int height = 700;
+// Versetzung des Kabels 
+    int offsetX = 5; 
+    int offsetY = 5;
+    boolean isRedrawing = false;
     
     // Konstruktor
     Circuit(String name, int cols, int rows) {
@@ -53,22 +54,9 @@ class Circuit<T> implements Serializable {
     // Konstruktor zum Laden
     Circuit(String name, String fileName) {
         Circuit<T> loadedCircuit = loadCircuit(fileName);
-        if (loadedCircuit != null) {
-            this.turtle1 = new Turtle(this.width, this.height);
-            this.turtle2 = new Turtle(1600, 1000);
-            this.components = loadedCircuit.components;
-            this.firstInputPositions = loadedCircuit.firstInputPositions;
-            this.secondInputPositions = loadedCircuit.secondInputPositions;
-            this.outputPositions = loadedCircuit.outputPositions;
-            this.connections = loadedCircuit.connections;
-            this.wirePoints = loadedCircuit.wirePoints;
-            this.maxCols = loadedCircuit.maxCols;
-            this.maxRows = loadedCircuit.maxRows;
-            this.offsetX = loadedCircuit.offsetX;
-            this.offsetY = loadedCircuit.offsetY;
-            drawNewCircuit();
-            
-        } else System.err.println("Falscher Dateiname " + fileName);
+        if (loadedCircuit == null) throw new IllegalArgumentException("❌ Fehler beim Laden der Datei: " + fileName);
+
+        System.out.println("Schaltkreis " + fileName + " wurde erfolgreich geladen.");
     }
 
     // einzelenes Quadrat im Feld
@@ -848,6 +836,10 @@ class Circuit<T> implements Serializable {
     
     // Position der Komponente prüfen
     boolean isValidConnection(T source, T destination) {
+        if (!components.containsValue(source)) throw new IllegalArgumentException("Quelle nicht gefunden.");
+
+        if (!components.containsValue(destination)) throw new IllegalArgumentException("Ziel nicht gefunden.");
+
         Point sourcePosition = null, destPosition = null;
     
         // Positionen der Komponenten aus der Map holen
@@ -873,6 +865,8 @@ class Circuit<T> implements Serializable {
             System.out.println("Verbindung nicht möglich: Zielkomponente liegt links von der Quellkomponente.");
             return false;
         }
+
+        
     
         // Verbindung ist gültig
         return true;
@@ -1352,7 +1346,24 @@ class Circuit<T> implements Serializable {
     public Circuit<T> loadCircuit(String filename) {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(filename))) {
             Circuit <T> loadedCircuit = (Circuit<T>) ois.readObject();
-        return loadedCircuit;
+            this.width = loadedCircuit.width;
+            this.height = loadedCircuit.height;
+            this.turtle1 = new Turtle(this.width, this.height);
+            this.turtle2 = new Turtle(1600, 1000);
+            this.components = loadedCircuit.components;
+            this.firstInputPositions = loadedCircuit.firstInputPositions;
+            this.secondInputPositions = loadedCircuit.secondInputPositions;
+            this.outputPositions = loadedCircuit.outputPositions;
+            this.connections = loadedCircuit.connections;
+            this.wirePoints = loadedCircuit.wirePoints;
+            this.maxCols = loadedCircuit.maxCols;
+            this.maxRows = loadedCircuit.maxRows;
+            this.offsetX = loadedCircuit.offsetX;
+            this.offsetY = loadedCircuit.offsetY;
+            this.isRedrawing = loadedCircuit.isRedrawing;
+            this.drawNewCircuit();
+            this.evaluateCircuit();
+            return this;
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
             return null;
@@ -1364,11 +1375,11 @@ class Circuit<T> implements Serializable {
 class Gate implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private String type;
-    private String name;
-    public int input1;
-    public int input2;
-    public int output;
+    String type;
+    String name;
+    int input1;
+    int input2;
+    int output;
     
 
     // Konstruktor
@@ -1412,6 +1423,18 @@ class Gate implements Serializable {
         this.input2 = value;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Gate gate = (Gate) obj;
+        return name.equals(gate.name) && type.equals(gate.type);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, type);
+    }
 
     @Override
     public String toString() {
@@ -1423,8 +1446,8 @@ class Gate implements Serializable {
 class Input implements Serializable {
     private static final long serialVersionUID = 1L;
     
-    private String name;
-    public int inputValue;
+    String name;
+    int inputValue;
 
     // Konstruktor mit direkter Input-Eingabe
     Input(String name, int inputValue) {
@@ -1445,6 +1468,20 @@ class Input implements Serializable {
     }
 
     @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Input input = (Input) obj;
+        return name.equals(input.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
+    }
+
+
+    @Override
     public String toString() {
         return this.name;
     }
@@ -1454,9 +1491,9 @@ class Input implements Serializable {
 class Connection<T> implements Serializable {
     private static final long serialVersionUID = 1L;
     
-    public T source;
-    public T destination;
-    public int inputNumber;
+    T source;
+    T destination;
+    int inputNumber;
 
     Connection(T source, T destination, int inputNumber) {
         this.source = source;
