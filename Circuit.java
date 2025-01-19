@@ -14,27 +14,26 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.Objects;
 
 
 class Circuit<T> implements Serializable {
     private static final long serialVersionUID = 1L;
-    int maxRows; 
-    int maxCols;
-    Map<Point, T> components; // key: Punkt, value: Komponente 
-    Map<T, Point> firstInputPositions; // key: Komponente, value: Punkt
-    Map<T, Point> secondInputPositions; // key: Komponente, value: Punkt
-    Map<T, Point> outputPositions; // key: Komponente, value: Punkt
-    List<Connection<T>> connections; // Liste der verbundenen Komponente 
-    List<Point> wirePoints; // speichert die Punkte ab, wo sich ein Kabel befindet
-    transient Turtle turtle1;
-    transient Turtle turtle2;
-    int width = 1600;
-    int height = 700;
-// Versetzung des Kabels 
-    int offsetX = 5; 
-    int offsetY = 5;
-    boolean isRedrawing = false;
+    private int maxRows; 
+    private int maxCols;
+    private Map<Point, T> components; // key: Punkt, value: Komponente 
+    private Map<T, Point> firstInputPositions; // key: Komponente, value: Punkt
+    private Map<T, Point> secondInputPositions; // key: Komponente, value: Punkt
+    private Map<T, Point> outputPositions; // key: Komponente, value: Punkt
+    private List<Connection<T>> connections; // Liste der verbundenen Komponente 
+    private List<Point> wirePoints; // speichert die Punkte ab, wo sich ein Kabel befindet
+    private transient Turtle turtle1;
+    private transient Turtle turtle2;
+    private int width = 1600;
+    private int height = 700;
+    // Versetzung des Kabels 
+    private int offsetX = 5; 
+    private int offsetY = 5;
+    private boolean isRedrawing = false;
     
     // Konstruktor
     Circuit(String name, int cols, int rows) {
@@ -301,6 +300,9 @@ class Circuit<T> implements Serializable {
             
             // Schaltung auswerten
             evaluateCircuit();
+            isRedrawing = true;
+            drawNewCircuit();
+            isRedrawing = false;
 
             // Ergebnisse der Gates in der Reihenfolge speichern
             List<Integer> resultRow = new ArrayList<>();
@@ -340,6 +342,23 @@ class Circuit<T> implements Serializable {
 
         if (component instanceof Gate) sortedOutputs.add(component); // nur Gates        
     }    
+
+    // komplette Schaltung löschen
+    void deleteCircuit() {
+        turtle1.reset();
+        turtle2.reset();
+
+        components.clear();
+        firstInputPositions.clear();
+        secondInputPositions.clear();
+        outputPositions.clear();
+        connections.clear();
+        wirePoints.clear();
+        offsetX = 5;
+        offsetY = 5;
+        drawCircuitField();
+        System.out.println("Gesamte Schaltung wurde gelöscht.");
+    }
 
     // Spalten hinzufügen
     void addColumn(int count) {
@@ -396,8 +415,8 @@ class Circuit<T> implements Serializable {
         return row >= 0 && row < maxRows && col >= 0 && col < maxCols;
     }
 
-     // Typ vom Gate auwerten und zeichnen
-     void selectGateAndDraw(T component) {
+    // Typ vom Gate auwerten und zeichnen
+    void selectGateAndDraw(T component) {
         if (component instanceof Gate gate) {
             switch (gate.getType()) {
                 case "AND" -> drawANDGate(component);
@@ -505,7 +524,7 @@ class Circuit<T> implements Serializable {
         // prüfen, ob ein offset in y-Richtung erforderlich ist
         boolean applyYOffset = connections.stream()
             .filter(conn -> !conn.destination.equals(destinationComponent) && conn.inputNumber == inputNumber)
-            .anyMatch(conn -> compareXPositions(sourceComponent, destinationComponent));
+            .anyMatch(conn -> compareHorizontalPositions(sourceComponent, destinationComponent));
 
         // prüft, ob eine Quelle bereits eine Verbindung hat
         boolean isAlreadyConnected = isSourceConnected(sourceComponent);
@@ -559,7 +578,7 @@ class Circuit<T> implements Serializable {
     
             boolean applyYOffset = tempConnections.stream()
                 .filter(conn -> !conn.destination.equals(connection.destination) && conn.inputNumber == connection.inputNumber)
-                .anyMatch(conn -> compareXPositions(connection.source, connection.destination));
+                .anyMatch(conn -> compareHorizontalPositions(connection.source, connection.destination));
     
             // Prüfen, ob Quelle bereits verbunden ist
             boolean isAlreadyConnected = isSourceConnected(connection.source);
@@ -592,9 +611,9 @@ class Circuit<T> implements Serializable {
         turtle1.moveTo(startX, startY).penDown();
 
         // y-Offset anwenden  
-        startY = applyDetourIfNeeded(detourNeeded, applyYOffset, startY, endY);
+        startY = applyDetourIfNeeded(detourNeeded, applyYOffset, startY, endY, sourceComponent);
 
-        if (compareXPositions(sourceComponent, destinationComponent) && !applyYOffset) offsetX = 5; // damit offsetX nicht zu sehr wächst
+        if (compareHorizontalPositions(sourceComponent, destinationComponent) && !applyYOffset) offsetX = 5; // damit offsetX nicht zu sehr wächst
 
         if ((sourceComponent instanceof Gate gate && gate.output == 1) || (sourceComponent instanceof Input input && input.inputValue == 1)) turtle1.color(0, 150, 0); // Kabel grün bei input == 1
 
@@ -719,8 +738,16 @@ class Circuit<T> implements Serializable {
     }
     
     // drumherum zeichnen
-    int applyDetourIfNeeded(boolean detourNeeded, boolean applyYOffset, int startY, int endY) {
-        if (detourNeeded && applyYOffset) {
+    int applyDetourIfNeeded(boolean detourNeeded, boolean applyYOffset, int startY, int endY, T sourceComponent) {
+        if (detourNeeded && !isSourceConnected(sourceComponent)) {
+            if (startY < endY) {
+                turtle1.right(90).forward(30).left(90);
+                startY += 30;
+            } else if (startY > endY) {
+                turtle1.left(90).forward(30).right(90);
+                startY -= 30;
+            }
+        } else if (detourNeeded && applyYOffset) {
             if (startY < endY) {
                 turtle1.right(90).forward(30 + offsetY).left(90);
                 startY += 30;
@@ -729,14 +756,6 @@ class Circuit<T> implements Serializable {
                 startY -= 30;
             }
             offsetY += 5;
-        } else if (detourNeeded) {
-            if (startY < endY) {
-                turtle1.right(90).forward(30).left(90);
-                startY += 30;
-            } else if (startY > endY) {
-                turtle1.left(90).forward(30).right(90);
-                startY -= 30;
-            }
         }
         return startY;  // aktualisiertes startY zurückgeben
     }
@@ -764,8 +783,8 @@ class Circuit<T> implements Serializable {
         return bothAbove || bothBelow;
     }
     
-    // vergleicht, ob Quelle und Ziel in einer vertikalen Linie stehen
-    boolean compareXPositions(T sourceComponent, T destinationComponent) {
+    // vergleicht, ob Quelle und Ziel in einer horizontalen Linie stehen
+    boolean compareHorizontalPositions(T sourceComponent, T destinationComponent) {
         Point sourcePosition = components.entrySet().stream()
             .filter(entry -> entry.getValue().equals(sourceComponent))
             .map(Map.Entry::getKey)
@@ -1375,11 +1394,11 @@ class Circuit<T> implements Serializable {
 class Gate implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    String type;
-    String name;
-    int input1;
-    int input2;
-    int output;
+    private String type;
+    private String name;
+    public int input1;
+    public int input2;
+    public int output;
     
 
     // Konstruktor
@@ -1424,19 +1443,6 @@ class Gate implements Serializable {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        Gate gate = (Gate) obj;
-        return name.equals(gate.name) && type.equals(gate.type);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(name, type);
-    }
-
-    @Override
     public String toString() {
         return "Gate type: " + this.type + " named: " + this.name;
     }
@@ -1446,8 +1452,8 @@ class Gate implements Serializable {
 class Input implements Serializable {
     private static final long serialVersionUID = 1L;
     
-    String name;
-    int inputValue;
+    private String name;
+    public int inputValue;
 
     // Konstruktor mit direkter Input-Eingabe
     Input(String name, int inputValue) {
@@ -1466,20 +1472,6 @@ class Input implements Serializable {
     String getInputName() {
         return this.name;
     }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        Input input = (Input) obj;
-        return name.equals(input.name);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(name);
-    }
-
 
     @Override
     public String toString() {
