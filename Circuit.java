@@ -611,7 +611,7 @@ class Circuit<T> implements Serializable {
         turtle1.moveTo(startX, startY).penDown();
 
         // y-Offset anwenden  
-        startY = applyDetourIfNeeded(detourNeeded, applyYOffset, startY, endY, sourceComponent);
+        startY = applyDetourIfNeeded(detourNeeded, applyYOffset, startY, endY, isAlreadyConnected);
 
         if (compareHorizontalPositions(sourceComponent, destinationComponent) && !applyYOffset) offsetX = 5; // damit offsetX nicht zu sehr wächst
 
@@ -636,13 +636,13 @@ class Circuit<T> implements Serializable {
     void moveHorizontally(int startX, int endX, int startY, int endY, int offsetX, long existingConnections, boolean applyXOffset, boolean isAlreadyConnected) {
         if ((applyXOffset && existingConnections > 0) || isAlreadyConnected) { // mit offset
             while (startX < (endX - offsetX)) {
-                startX += 1; 
+                startX ++; 
                 turtle1.forward(1);
                 wirePoints.add(new Point(startX, startY));
             }
         } else { // ohne offset
             while (startX < endX) { 
-                startX += 1; 
+                startX ++; 
                 turtle1.forward(1);
                 wirePoints.add(new Point(startX, startY));
             }
@@ -659,6 +659,7 @@ class Circuit<T> implements Serializable {
             // offset-Strich zeichnen
             if (movedDown) turtle1.left(90).forward(offsetX - 5).right(90);
             else turtle1.right(90).forward(offsetX - 5).left(90);
+            System.out.println("here");
         } else if (isAlreadyConnected) {
             if (!applyYOffset) drawIntersectionCircle(); 
             startY = drawVerticalWire(startX, startY, endY);
@@ -680,10 +681,10 @@ class Circuit<T> implements Serializable {
     boolean setVerticalDirection(int startY, int endY) {
         if (startY < endY) {
             turtle1.right(90); // nach unten drehen
-            return true;       // movedDown = true
+            return true; // movedDown = true
         } else if (startY > endY) {
             turtle1.left(90);  // nach oben drehen
-            return false;      // movedDown = false
+            return false; // movedDown = false
         }
         return false;
     }
@@ -695,6 +696,8 @@ class Circuit<T> implements Serializable {
             turtle1.forward(1);
             wirePoints.add(new Point(startX, startY));  // Kabelpunkt speichern
         }
+        if (offsetY == 10) turtle1.forward(offsetY - 5);
+        
         return startY;
     }
     
@@ -738,8 +741,8 @@ class Circuit<T> implements Serializable {
     }
     
     // drumherum zeichnen
-    int applyDetourIfNeeded(boolean detourNeeded, boolean applyYOffset, int startY, int endY, T sourceComponent) {
-        if (detourNeeded && !isSourceConnected(sourceComponent)) {
+    int applyDetourIfNeeded(boolean detourNeeded, boolean applyYOffset, int startY, int endY, boolean isAlreadyConnected) {
+        if (detourNeeded && !isAlreadyConnected) {
             if (startY < endY) {
                 turtle1.right(90).forward(30).left(90);
                 startY += 30;
@@ -747,6 +750,7 @@ class Circuit<T> implements Serializable {
                 turtle1.left(90).forward(30).right(90);
                 startY -= 30;
             }
+            System.out.println("first");
         } else if (detourNeeded && applyYOffset) {
             if (startY < endY) {
                 turtle1.right(90).forward(30 + offsetY).left(90);
@@ -756,6 +760,7 @@ class Circuit<T> implements Serializable {
                 startY -= 30;
             }
             offsetY += 5;
+            System.out.println("second");
         }
         return startY;  // aktualisiertes startY zurückgeben
     }
