@@ -15,11 +15,13 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
-Clerk.markdown("""
+Clerk.markdown(
+    Text.fillOut(
+"""
 # Simulator für digitale Schaltungen
-## *Vorname:* Alexander
-## *Nachname:* Schmidt 
-## *Matrikelnummer:* 5502046
+## *Vorname: Alexander*
+## *Nachname: Schmidt*
+## *Matrikelnummer: 5502046*
 
 ## Zweck der Anwendung
 Der Simulator für digitale Schaltungen soll Nutzern ermöglichen, digitale Schaltkreise virtuell zu testen und zu analysieren. 
@@ -38,8 +40,8 @@ Ein Benutzer soll verschiedene grundlegende Gatter (NOT, AND, OR, NAND, NOR, XOR
 #### Konstruktoren:
 - **`Input`**: Erstellt einen Eingang mit einem bestimmten Namen und optional einem Anfangswert (0 oder 1).
   ```java
-  Input(String name, int inputValue);
-  Input(String name);
+  Input(String name, int inputValue)
+  Input(String name) // inputValue = 0
   ```
   **Beispiel:**
   ```java
@@ -47,82 +49,104 @@ Ein Benutzer soll verschiedene grundlegende Gatter (NOT, AND, OR, NAND, NOR, XOR
   Input x2 = new Input("x2", 0);
   ```
 
-- **`Gate`**: Erstellt ein Gatter mit einem Typ (z. B. AND, OR) und einem Namen.
+- **`Gate`**: Erstellt ein Gatter mit einem Typ (z. B. AND, OR) und einem Namen. Jedes Gatter (außer NOT) hat zwei Eingänge.
   ```java
-  Gate(String type, String name);
+  Gate(String type, String name)
   ```
   **Beispiel:**
   ```java
-  Gate andGate = new Gate("AND", "AND1");
-  Gate orGate = new Gate("OR", "OR1");
+  Gate andGate = new Gate("AND", "andGate1");
+  Gate orGate = new Gate("OR", "orGate1");
   ```
 
 ### 2. **Komponenten hinzufügen**
 
-Die Methode `addComponent` fügt eine Komponente (z. B. ein Gatter oder einen Eingang) an eine bestimmte Position im Schaltungsfeld hinzu.
+Die Methode `addComponent` fügt eine Komponente (z. B. ein Gatter oder einen Eingang) an eine bestimmte Position im Schaltungsfeld hinzu. Dabei ist zu beachten, dass Eingänge in die erste Spalte und Gatter nicht in die erste Spalte hinzugefügt werden können.
 ```java
-void addComponent(int row, int col, Object component);
+void addComponent(int row, int col, T component)
 ```
 **Beispiel:**
 ```java
-Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 10);
-c1.addComponent(2, 1, x1); // x1 in Spalte 2, Zeile 1 hinzufügen
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 15, 6); // 15 Zeilen und 6 Spalten 
+c1.addComponent(2, 1, x1); // x1 in Zeile 2, Spalte 1 hinzufügen
 c1.addComponent(3, 1, x2);
-c1.addComponent(2, 3, andGate);
+c1.addComponent(2, 3, andGate1);
 ```
+#### Herausforderungen:
+- **Überprüfung von Positionen:** Es muss gewährleistet sein, dass die Komponente in eine gültige Position eingefügt wird (z. B. Eingänge nur in Spalte 1).
+- **Prüfung auf Überschneidungen:** Stellen Sie sicher, dass an einer Position keine andere Komponente bereits existiert.
+- **Unterstützung unterschiedlicher Typen:** Die Methode muss sowohl mit `Input`- als auch mit `Gate`-Objekten umgehen können. Dies erfordert Typprüfungen und geeignete Zeichnungslogik für die Turtle.
 
 ### 3. **Komponenten verbinden**
 
 Die Methode `connectComponents` verbindet die Ausgänge einer Quelle mit den Eingängen eines Ziels.
 ```java
-void connectComponents(Object sourceComponent, Object destinationComponent, int inputNumber);
+void connectComponents(T sourceComponent, T destinationComponent, int inputNumber)
 ```
 **Beispiel:**
 ```java
-c1.connectComponents(x1, andGate, 1); // x1 mit Eingang 1 von andGate verbinden
-c1.connectComponents(x2, andGate, 2); // x2 mit Eingang 2 von andGate verbinden
+c1.connectComponents(x1, andGate, 1); // x1 mit Eingang 1 von andGate verbinden (1 = oberer Eingang des Gatters)
+c1.connectComponents(x2, andGate, 2); // x2 mit Eingang 2 von andGate verbinden (2 = unterer Eingang des Gatters)
 ```
+#### Herausforderungen:
+- **Verbindung zwischen Quellen und Zielen:** Sicherstellen, dass die Verbindung nur dann erstellt wird, wenn die Quelle und das Ziel in der Schaltung vorhanden sind.
+- **Gattertyp beachten:** Nur zulässige Verbindungen (z. B. zwei Eingänge bei `AND`-Gattern) dürfen hergestellt werden.
+- **Fehlerhafte Verbindungen vermeiden:** Das Ziel darf nicht links von der Quelle liegen oder in derselben Spalte.
+- **Offset bei Verbindung:** Wenn bereits eine Verbindung zu einer Zielkomponente besteht, muss beim Zeichnen der Verbindung ein "Offset" angewendet werden, um Überlappungen der Kabeln zu vermeiden. 
+- **Umzeichnen bei Hindernissen:** Falls sich ein Gatter in derselben Zeile zwischen der Quelle und dem Ziel befindet, muss die Verbindung so angepasst werden, dass sie um das Hindernis herumgeführt wird (z. B. durch Umleitung oberhalb oder unterhalb des Hindernisses).
+- **Farbprüfung der Verbindung:** Jede Verbindung muss abhängig vom Logikwert korrekt gezeichnet werden:
+  - **Grün (HIGH / 1):** Wenn der Ausgang der Quelle den Wert 1 hat.
+  - **Schwarz (LOW / 0):** Wenn der Ausgang der Quelle den Wert 0 hat.
 
-### 4. **Schaltung auswerten**
+### 4. **Eingang setzen**
 
-Die Methode `evaluateCircuit` berechnet die Logik für alle verbundenen Komponenten basierend auf den Eingabewerten.
+Die Methode `setInput` ändert den Wert eines Eingangs und aktualisiert automatisch die gesamte Schaltung. Nach dem Setzen wird die Schaltung sofort neu ausgewertet und gezeichnet.
 ```java
-void evaluateCircuit();
+void setInput(T component, int value)
 ```
 **Beispiel:**
 ```java
-c1.evaluateCircuit();
+c1.setInput(x1, 1); // x1 auf HIGH (1) setzen
+c1.setInput(x2, 0); // x2 auf LOW (0) setzen
 ```
+### 4. **Eingang setzen**
 
-### 5. **Schaltung zeichnen**
+#### Herausforderungen:
+- **Echtzeitaktualisierung der Schaltung:** Nach dem Schalten eines Eingangs muss die gesamte Schaltung neu ausgewertet und gezeichnet werden.
+- **Logikfehler vermeiden:** Die Eingaben müssen korrekt auf 0 oder 1 begrenzt sein.
 
-Die Methode `drawNewCircuit` zeichnet die gesamte Schaltung auf dem Feld neu.
+### 5. **Schaltung auswerten**
+
+Die Methode `evaluateCircuit` berechnet die Logik für alle verbundenen Komponenten basierend auf den Eingabewerten. Diese Methode wird immer automatisch aufgerufen, sobald ein Eingang geschalten wird oder man Komponente verbindet. 
 ```java
-void drawNewCircuit();
+void evaluateCircuit()
 ```
+#### Herausforderungen:
+- **Iterative Auswertung:** Jede Komponente muss in der richtigen Reihenfolge ausgewertet werden, abhängig davon, welche Verbindungen existieren.
+- **Änderungen verfolgen:** Wenn sich ein Ausgang ändert, muss die Änderung korrekt in der Konsole angezeigt werden.
+- **Rekursivität vermeiden:** Es muss verhindert werden, dass Schleifen in den Verbindungen zu endlosen Auswertungen führen.
 
-### 6. **Wahrheitstabelle erstellen**
-Die Methode `drawTable` generiert eine Wahrheitstabelle für die Schaltung.
+### 6. **Schaltung dynamisch halten**
+
+Die Methode `drawNewCircuit` zeichnet die gesamte Schaltung auf dem Feld neu. Diese Methode wird immer automatisch aufgerufen, sobald die Schaltung neu gezeichnet werden muss, um Veränderungen optisch in der Turtle zu sehen. 
 ```java
-void drawTable();
+void drawNewCircuit()
 ```
-**Beispiel:**
-```java
-c1.drawTable();
-```
+#### Herausforderungen:
+- **Vollständige Aktualisierung:** Alle Verbindungen und Komponenten müssen erneut gezeichnet werden.
 
-## Beispielablauf: Erstellen eines AND-Gatters
-
+## Beispielablauf: Mit einem AND-Gatter und zwei Eingängen 
+### jshell:
 ```java
 // Schaltkreis erstellen
-Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 10);
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 15, 6);
 
 // Eingänge erstellen
 Input x1 = new Input("x1", 1);
 Input x2 = new Input("x2", 0);
 
 // Gatter erstellen
-Gate andGate = new Gate("AND", "AND1");
+Gate andGate = new Gate("AND", "andGate");
 
 // Komponenten hinzufügen
 c1.addComponent(2, 1, x1);
@@ -133,19 +157,28 @@ c1.addComponent(2, 3, andGate);
 c1.connectComponents(x1, andGate, 1);
 c1.connectComponents(x2, andGate, 2);
 
-// Schaltung auswerten
-c1.evaluateCircuit();
-
-// Schaltung zeichnen
-c1.drawNewCircuit();
-
-// Wahrheitstabelle erstellen
-c1.drawTable();
+// Eingang schalten
+c1.setInput(x1, 1); 
+c1.setInput(x2, 1); 
 ```
+### Turtle:
+""", Map.of("turtle1", Text.cutOut("./Circuit.java", "// "),
+            "turtle2", Text.cutOut("./Circuit.java", "// "),
+            "turtle3", Text.cutOut("./Circuit.java", "// "),
+            "turtle4", Text.cutOut("./Circuit.java", "// "),
+            "turtle5", Text.cutOut("./Circuit.java", "// "))));
 
-## Fazit
-Mit den oben genannten Methoden können Benutzer leicht grundlegende Gatter erstellen, Eingänge verbinden und die Logik der Schaltung überprüfen. Dies ermöglicht eine flexible und dynamische Analyse der Gatterlogik.
-""");
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 15, 6);   
+Input x1 = new Input("x1", 1);
+Input x2 = new Input("x2", 0);
+Gate andGate = new Gate("AND", "andGate");
+c1.addComponent(2, 1, x1);
+c1.addComponent(3, 1, x2);
+c1.addComponent(2, 3, andGate);
+c1.connectComponents(x1, andGate, 1);
+c1.connectComponents(x2, andGate, 2);
+c1.setInput(x1, 1);
+c1.setInput(x2, 1);           
 
 class Circuit<T> implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -169,7 +202,6 @@ class Circuit<T> implements Serializable {
     // Konstruktor
     Circuit(String name, int cols, int rows) {
         this.turtle1 = new Turtle(this.width, this.height);
-        this.turtle2 = new Turtle(1600, 1000);
         this.components = new HashMap<>();
         this.firstInputPositions = new HashMap<>();
         this.secondInputPositions = new HashMap<>();
@@ -247,6 +279,7 @@ class Circuit<T> implements Serializable {
 
     // gesamte Wahrheitstabelle zeichnen lassen
     void drawTable() {
+        turtle2 = new Turtle(1600, 1000);
         turtle2.reset();
         // Tabellemgitter zeichnen
         drawTableFrame();

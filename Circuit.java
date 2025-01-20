@@ -38,7 +38,6 @@ class Circuit<T> implements Serializable {
     // Konstruktor
     Circuit(String name, int cols, int rows) {
         this.turtle1 = new Turtle(this.width, this.height);
-        this.turtle2 = new Turtle(1600, 1000);
         this.components = new HashMap<>();
         this.firstInputPositions = new HashMap<>();
         this.secondInputPositions = new HashMap<>();
@@ -116,6 +115,7 @@ class Circuit<T> implements Serializable {
 
     // gesamte Wahrheitstabelle zeichnen lassen
     void drawTable() {
+        turtle2 = new Turtle(1600, 1000);
         turtle2.reset();
         // Tabellemgitter zeichnen
         drawTableFrame();
