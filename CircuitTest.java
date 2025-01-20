@@ -16,15 +16,15 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
 
-class Circuit<T> implements Serializable {
+class Circuit implements Serializable {
     private static final long serialVersionUID = 1L;
     private int maxRows; 
     private int maxCols;
-    private Map<Point, T> components; // key: Punkt, value: Komponente 
-    private Map<T, Point> firstInputPositions; // key: Komponente, value: Punkt
-    private Map<T, Point> secondInputPositions; // key: Komponente, value: Punkt
-    private Map<T, Point> outputPositions; // key: Komponente, value: Punkt
-    private List<Connection<T>> connections; // Liste der verbundenen Komponente 
+    private Map<Point, Object> components; // key: Punkt, value: Komponente 
+    private Map<Object, Point> firstInputPositions; // key: Komponente, value: Punkt
+    private Map<Object, Point> secondInputPositions; // key: Komponente, value: Punkt
+    private Map<Object, Point> outputPositions; // key: Komponente, value: Punkt
+    private List<Connection> connections; // Liste der verbundenen Komponente 
     private List<Point> wirePoints; // speichert die Punkte ab, wo sich ein Kabel befindet
     private transient Turtle turtle1;
     private transient Turtle turtle2;
@@ -52,7 +52,7 @@ class Circuit<T> implements Serializable {
 
     // Konstruktor zum Laden
     Circuit(String name, String fileName) {
-        Circuit<T> loadedCircuit = loadCircuit(fileName);
+        Circuit loadedCircuit = loadCircuit(fileName);
         if (loadedCircuit == null) throw new IllegalArgumentException("Fehler beim Laden der Datei: " + fileName);
         System.out.println("Schaltkreis " + fileName + " wurde erfolgreich geladen.");
     }
@@ -144,7 +144,7 @@ class Circuit<T> implements Serializable {
         
         // Anzahl der Inputs abspeichern
         List<Input> inputs = new ArrayList<>();
-        for (T component : components.values()) if (component instanceof Input input) inputs.add(input);
+        for (Object component : components.values()) if (component instanceof Input input) inputs.add(input);
         int inputsAmount = inputs.size();
         int totalRows = (int) Math.pow(2, inputsAmount); // Anzahl der Spalten in Abhängigkeit von der Anzahl der Inputs berechnen
         int tableHeight = rowHeight * totalRows; // Höhe der Tabelle bestimmen in Abhängigkeit der Anzahl von Inputs 
@@ -164,7 +164,7 @@ class Circuit<T> implements Serializable {
     void drawInputValuesInTable() {
         // Anzahl der Verbindungen abspeichern
         List<Input> inputs = new ArrayList<>();
-        for (T component : components.values()) if (component instanceof Input input) inputs.add(input);
+        for (Object component : components.values()) if (component instanceof Input input) inputs.add(input);
         int inputsAmount = inputs.size();
 
         // Liste all der Kombinationen abspeichern
@@ -194,7 +194,7 @@ class Circuit<T> implements Serializable {
         List<List<Integer>> allOutputCombinations = evaluateLogicForAllInputs();
 
         List<Input> inputs = new ArrayList<>();
-        for (T component : components.values()) if (component instanceof Input input) inputs.add(input);
+        for (Object component : components.values()) if (component instanceof Input input) inputs.add(input);
 
         // Namen der Logik
         long outputCount = connections.stream()
@@ -238,11 +238,11 @@ class Circuit<T> implements Serializable {
     // Name der Verbindungen abrufen
     List<String> getConnectionLogicStrings() {
         // Sortierte Outputs abrufen
-        List<T> sortedOutputs = getSortedOutputs();
+        List<Object> sortedOutputs = getSortedOutputs();
 
         List<String> logicExpressions = new ArrayList<>();
 
-        for (T output : sortedOutputs) {
+        for (Object output : sortedOutputs) {
             if (output instanceof Gate gate) {
                 String gateName = gate.getName(); // Name des Gates
                 String gateType = gate.getType(); // Typ des Gates
@@ -261,7 +261,7 @@ class Circuit<T> implements Serializable {
     }
 
     String getInputComponentName(Gate gate, int inputNumber) {
-        for (Connection<T> conn : connections) {
+        for (Connection conn : connections) {
             if (conn.destination.equals(gate) && conn.inputNumber == inputNumber)
                 if (conn.source instanceof Input input) return input.getInputName(); // Name des Inputs
                 else if (conn.source instanceof Gate sourcGate) return sourcGate.getName(); // Name als Quelle kommende Gate
@@ -272,7 +272,7 @@ class Circuit<T> implements Serializable {
     // Generierung der Wahrheitstabelle für alle Outputs
     List<List<Integer>> evaluateLogicForAllInputs() {
         // alle Input-Komponenten sammeln
-        List<T> inputList = components.values().stream()
+        List<Object> inputList = components.values().stream()
             .filter(component -> component instanceof Input) // filter nur Input-Objekte
             .collect(Collectors.toList()); // sammelt alle Inputs und fügt sie der Liste hinzu
         int inputCount = inputList.size();
@@ -283,7 +283,7 @@ class Circuit<T> implements Serializable {
         List<List<Integer>> inputCombinations = generateInputCombinations(inputCount); 
 
         // sortierte Gates
-        List<T> sortedOutputs = getSortedOutputs();
+        List<Object> sortedOutputs = getSortedOutputs();
 
         // über alle Kombinationen iterieren
         for (List<Integer> combination : inputCombinations) {
@@ -305,7 +305,7 @@ class Circuit<T> implements Serializable {
 
             // Ergebnisse der Gates in der Reihenfolge speichern
             List<Integer> resultRow = new ArrayList<>();
-            for (T output : sortedOutputs) 
+            for (Object output : sortedOutputs) 
                 if (output instanceof Gate gate) 
                     resultRow.add(gate.output);
             
@@ -317,12 +317,12 @@ class Circuit<T> implements Serializable {
     }
 
     // Liste von rechts nach links sortierten Gates rausbekommen
-    List<T> getSortedOutputs() {
-        List<T> sortedOutputs = new ArrayList<>();
-        Set<T> visited = new HashSet<>();
+    List<Object> getSortedOutputs() {
+        List<Object> sortedOutputs = new ArrayList<>();
+        Set<Object> visited = new HashSet<>();
 
-        for (Connection<T> connection : connections) {
-            T destination = connection.destination;
+        for (Connection connection : connections) {
+            Object destination = connection.destination;
             if (!visited.contains(destination)) sortHelper(destination, visited, sortedOutputs); // wenn das Ziel noch nicht besucht wurde
         }
 
@@ -331,10 +331,10 @@ class Circuit<T> implements Serializable {
     }
 
     // schaut ob, eine Komponente Quelle in der Verbindung ist und holt sich davon das Ziel nur einmal raus
-    void sortHelper(T component, Set<T> visited, List<T> sortedOutputs) {
+    void sortHelper(Object component, Set<Object> visited, List<Object> sortedOutputs) {
         visited.add(component); // als besucht markiert, damit die Komponenete nicht noch mal bearbeitet wird
 
-        for (Connection<T> connection : connections) 
+        for (Connection connection : connections) 
             // wenn aktuelle Komponente die Quelle einer Verbindung ist und noch nicht besucht wurde
             if (connection.source.equals(component) && !visited.contains(connection.destination)) 
                 sortHelper(connection.destination, visited, sortedOutputs); // wird rekursiv für die Zielkomponente aufgerufen 
@@ -415,7 +415,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Typ vom Gate auwerten und zeichnen
-    void selectGateAndDraw(T component) {
+    void selectGateAndDraw(Object component) {
         if (component instanceof Gate gate) {
             switch (gate.getType()) {
                 case "AND" -> drawANDGate(component);
@@ -431,7 +431,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Komponente hinzufügen
-    void addComponent(int row, int col, T component) {
+    void addComponent(int row, int col, Object component) {
         // vorhandene Position prüfen
         if (!isValidPosition(row, col)) throw new IllegalArgumentException("Ungültige Position: (" + row + ", " + col + "). Diese Position existiert nicht im Schaltungsfeld.");
         
@@ -468,7 +468,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Komponente hinzufügen ohne Überprüfung, um dynamisch zeichnen zu können
-    void addComponentWithoutChecks(int row, int col, T component) {
+    void addComponentWithoutChecks(int row, int col, Object component) {
         
         turtle1.moveTo(getPixel(col), getPixel(row)).backward(25).left(90).forward(25).right(90); // zur Position gehen
 
@@ -499,7 +499,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Komponente verbinden
-    void connectComponents(T sourceComponent, T destinationComponent, int inputNumber) {        
+    void connectComponents(Object sourceComponent, Object destinationComponent, int inputNumber) {        
         // Position prüfen
         if (!isValidConnection(sourceComponent, destinationComponent)) return;
         
@@ -529,7 +529,7 @@ class Circuit<T> implements Serializable {
         boolean isAlreadyConnected = isSourceConnected(sourceComponent);
 
         // Verbindung in die Liste eintragen
-        connections.add(new Connection<>(sourceComponent, destinationComponent, inputNumber));
+        connections.add(new Connection(sourceComponent, destinationComponent, inputNumber));
         System.out.println("Verbindung hinzugefügt: " + sourceComponent + " -> " + destinationComponent + " (Eingang " + inputNumber + ")");
 
         
@@ -548,7 +548,7 @@ class Circuit<T> implements Serializable {
     // Verbindungen neuzeichnen
     void reconnectComponents() {
         // Temporäre Kopie der Verbindungen
-        List<Connection<T>> tempConnections = new ArrayList<>(connections);
+        List<Connection> tempConnections = new ArrayList<>(connections);
     
         // Verbindungen zurücksetzen
         connections.clear();
@@ -558,7 +558,7 @@ class Circuit<T> implements Serializable {
         offsetY = 5;
     
         // jede Verbindung aus der temporären Liste neu zeichnen
-        for (Connection<T> connection : tempConnections) {
+        for (Connection connection : tempConnections) {
             Point sourceOutput = outputPositions.get(connection.source);
             Point destInput = (connection.inputNumber == 1)
                 ? firstInputPositions.get(connection.destination)
@@ -592,7 +592,7 @@ class Circuit<T> implements Serializable {
     }
     
     // Verbindung zeichnen lassen
-    void drawConnection(Point sourceOutput, Point destInput, T sourceComponent, T destinationComponent, boolean applyXOffset, boolean applyYOffset, boolean isAlreadyConnected) {
+    void drawConnection(Point sourceOutput, Point destInput, Object sourceComponent, Object destinationComponent, boolean applyXOffset, boolean applyYOffset, boolean isAlreadyConnected) {
         int startX = sourceOutput.x;
         int startY = sourceOutput.y;
         int endX = destInput.x;
@@ -706,7 +706,7 @@ class Circuit<T> implements Serializable {
     }
     
     // prüft, ob eine Zelle auf dem Weg besetzt ist (außer Ziel)
-    boolean needsDetour(T sourceComponent, T destinationComponent) {
+    boolean needsDetour(Object sourceComponent, Object destinationComponent) {
         // den Punkt für die Quelle rausbekommen
         Point sourcePosition = components.entrySet().stream()
             .filter(entry -> entry.getValue().equals(sourceComponent))
@@ -762,12 +762,12 @@ class Circuit<T> implements Serializable {
     }
 
     // prüfen, ob beide Quellen oberhalb oder unterhalb sind 
-    boolean checkSourcesYPositions(T source1, T source2, T destination) {
+    boolean checkSourcesYPositions(Object source1, Object source2, Object destination) {
         Point source1Position = outputPositions.get(source1);
         Point source2Position = outputPositions.get(source2);
         Point destinationPosition = null;
 
-        for (Map.Entry<Point, T> entry : components.entrySet()) {
+        for (Map.Entry<Point, Object> entry : components.entrySet()) {
             if (entry.getValue().equals(destination)) {
                 destinationPosition = entry.getKey();  // Position gefunden
                 break;
@@ -785,7 +785,7 @@ class Circuit<T> implements Serializable {
     }
     
     // vergleicht, ob Quelle und Ziel in einer horizontalen Linie stehen
-    boolean compareHorizontalPositions(T sourceComponent, T destinationComponent) {
+    boolean compareHorizontalPositions(Object sourceComponent, Object destinationComponent) {
         Point sourcePosition = components.entrySet().stream()
             .filter(entry -> entry.getValue().equals(sourceComponent))
             .map(Map.Entry::getKey)
@@ -823,27 +823,27 @@ class Circuit<T> implements Serializable {
             System.out.println("Keine Verbindungen vorhanden.");
         } else {
             System.out.println("Aktuelle Verbindungen:");
-            for (Connection<T> connection : connections) {
+            for (Connection connection : connections) {
                 System.out.println(connection);
             }
         }
     }
 
     // prüft, ob eine Quelle bereits eine Verbindung hat
-    boolean isSourceConnected(T sourceComponent) {
+    boolean isSourceConnected(Object sourceComponent) {
         return connections.stream()
             .anyMatch(conn -> conn.source.equals(sourceComponent));           
     }
     
     // prüft, ob schon eine Verbindung in der Liste zur gleichen Input-Nummer vorhanden ist
-    boolean isConnectionPresent(T destination, int inputNumber) {
+    boolean isConnectionPresent(Object destination, int inputNumber) {
         return connections.stream()
         .anyMatch(conn -> conn.destination.equals(destination) &&
                           conn.inputNumber == inputNumber);
     }
 
     // prüft, ob beide Eingänge von einem Gatter mit einem Kabel verbunden sind 
-    boolean areBothInputsConnected(T destinationComponent) {
+    boolean areBothInputsConnected(Object destinationComponent) {
         // prüfe Input 1
         boolean input1connected = connections.stream().
             anyMatch(conn -> conn.destination.equals(destinationComponent) && conn.inputNumber == 1);
@@ -855,7 +855,7 @@ class Circuit<T> implements Serializable {
     } 
     
     // Position der Komponente prüfen
-    boolean isValidConnection(T source, T destination) {
+    boolean isValidConnection(Object source, Object destination) {
         if (!components.containsValue(source)) throw new IllegalArgumentException("Quelle nicht gefunden.");
 
         if (!components.containsValue(destination)) throw new IllegalArgumentException("Ziel nicht gefunden.");
@@ -863,7 +863,7 @@ class Circuit<T> implements Serializable {
         Point sourcePosition = null, destPosition = null;
     
         // Positionen der Komponenten aus der Map holen
-        for (Map.Entry<Point, T> entry : components.entrySet()) {
+        for (Map.Entry<Point, Object> entry : components.entrySet()) {
             if (entry.getValue().equals(source)) sourcePosition = entry.getKey();
             if (entry.getValue().equals(destination)) destPosition = entry.getKey();
         }
@@ -893,7 +893,7 @@ class Circuit<T> implements Serializable {
     }    
 
     // Eingänge schalten
-    void setInput(T component, int value) {
+    void setInput(Object component, int value) {
         isRedrawing = true;
 
         if (value != 0 && value != 1) throw new IllegalArgumentException("Bitte nur 1 oder 0 schalten.");
@@ -908,7 +908,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Ouput der jeweiligen Komponente abrufen
-    int getComponentOutput(T component) {
+    int getComponentOutput(Object component) {
         if (component instanceof Input input) return input.inputValue;
         else if (component instanceof Gate gate) return gate.output;
         else throw new IllegalArgumentException("Unbekannte Komponente: " + component );
@@ -922,9 +922,9 @@ class Circuit<T> implements Serializable {
             hasChanged = false; 
             
             // iteriere über alle Verbindungen und berechne die Outputs
-            for (Connection<T> connection : connections) {
-                T source = connection.source;
-                T destination = connection.destination;
+            for (Connection connection : connections) {
+                Object source = connection.source;
+                Object destination = connection.destination;
                 int inputNumber = connection.inputNumber;
                 int sourceOutput = getComponentOutput(source); // Output der Quelle ermitteln
                 
@@ -951,8 +951,8 @@ class Circuit<T> implements Serializable {
     }
 
     // Position einer Komponente herausfinden
-    String getPosition(T component) {
-        for (Map.Entry<Point, T> entry : components.entrySet()) { // iteriert über alle Schlüssel-Wert-Paare
+    String getPosition(Object component) {
+        for (Map.Entry<Point, Object> entry : components.entrySet()) { // iteriert über alle Schlüssel-Wert-Paare
             if (entry.getValue().equals(component)) {
                 Point position = entry.getKey(); 
                 return component + " befindet sich an Position (" + position.y + ", " + position.x + ")."; // Position der Komponente gefunden
@@ -974,8 +974,8 @@ class Circuit<T> implements Serializable {
     }    
 
     // Pixel von X einer Komponente abrufen
-    int getPixelPositionX(T component) {
-        for (Map.Entry<Point, T> entry : components.entrySet()) { 
+    int getPixelPositionX(Object component) {
+        for (Map.Entry<Point, Object> entry : components.entrySet()) { 
             if (entry.getValue().equals(component)) {
                 Point position = entry.getKey();
                 int xPixel =  position.x * 100; // Umrechnung in Pixel
@@ -986,8 +986,8 @@ class Circuit<T> implements Serializable {
     }
 
     // Pixel von Y einer Komponente abrufen
-    int getPixelPositionY(T component) {
-        for (Map.Entry<Point, T> entry : components.entrySet()) { 
+    int getPixelPositionY(Object component) {
+        for (Map.Entry<Point, Object> entry : components.entrySet()) { 
             if (entry.getValue().equals(component)) {
                 Point position = entry.getKey();
                 int yPixel =  position.y * 100; // Umrechnung in Pixel 
@@ -998,7 +998,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Komponente einer Position herausfinden
-    T getComponent(int row, int col) {
+    Object getComponent(int row, int col) {
         if (row < 0 || col < 0) {
             throw new IllegalArgumentException("Zeile und Spalte müssen positiv sein.");
         }
@@ -1010,9 +1010,9 @@ class Circuit<T> implements Serializable {
     void drawNewCircuit() {
         turtle1.reset();
         drawCircuitField();
-        for (Map.Entry<Point, T> entry : components.entrySet()) {
+        for (Map.Entry<Point, Object> entry : components.entrySet()) {
             Point position = entry.getKey();
-            T component = entry.getValue(); 
+            Object component = entry.getValue(); 
             addComponentWithoutChecks(position.y, position.x, component);
         }
 
@@ -1040,7 +1040,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Koordinaten des Ausgangs und der Eingänge abspeichern
-    void saveEndingsOfGate(int x, int y, T component) {
+    void saveEndingsOfGate(int x, int y, Object component) {
         x += 30;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).forward(30); // Test
         Point point = new Point(x, y);
@@ -1059,7 +1059,7 @@ class Circuit<T> implements Serializable {
         if (!isRedrawing) System.out.println("Koordinaten unteren Eingang: x = " + x + ", y = " + y);
     }
 
-    void saveEndingsOfnGate(int x, int y, T component) {
+    void saveEndingsOfnGate(int x, int y, Object component) {
         x += 43;
         y += 1;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).forward(30); // Test
@@ -1079,7 +1079,7 @@ class Circuit<T> implements Serializable {
         if (!isRedrawing) System.out.println("Koordinaten unteren Eingang: x = " + x + ", y = " + y);
     }
 
-    void saveEndingsOfNot(int x, int y, T component) {
+    void saveEndingsOfNot(int x, int y, Object component) {
         x += 43;
         y += 1;
         // turtle1.moveTo(x, y).penDown().color(0, 255, 0).forward(30); // Test
@@ -1094,7 +1094,7 @@ class Circuit<T> implements Serializable {
         if (!isRedrawing) System.out.println("Koordinaten Eingang: x = " + x + ", y = " + y);
     }
 
-    void saveEndingOfInput(int x, int y, T component) {
+    void saveEndingOfInput(int x, int y, Object component) {
         x += 25;
         y += 2;
         // turtle1.moveTo(x, y).penDown().forward(30); // Test
@@ -1129,7 +1129,7 @@ class Circuit<T> implements Serializable {
     }
 
     // AND-Gate zeichnen
-    void drawANDGate(T component) {
+    void drawANDGate(Object component) {
         if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1158,7 +1158,7 @@ class Circuit<T> implements Serializable {
     }
 
     // OR-Gate zeichnen
-    void drawORGate(T component) {
+    void drawORGate(Object component) {
         if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1187,7 +1187,7 @@ class Circuit<T> implements Serializable {
     }
 
     // XOR-Gate zeichnen
-    void drawXORGate(T component) {
+    void drawXORGate(Object component) {
         if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1216,7 +1216,7 @@ class Circuit<T> implements Serializable {
     }
 
     // NAND-Gate zeichnen
-    void drawNANDGate(T component) {
+    void drawNANDGate(Object component) {
         if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1245,7 +1245,7 @@ class Circuit<T> implements Serializable {
     }
 
     // NOR-Gate zeichnen
-    void drawNORGate(T component) {
+    void drawNORGate(Object component) {
         if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1274,7 +1274,7 @@ class Circuit<T> implements Serializable {
     }
 
     // XNOR-Gate zeichnen
-    void drawXNORGate(T component) {
+    void drawXNORGate(Object component) {
         if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1303,7 +1303,7 @@ class Circuit<T> implements Serializable {
     }
 
     // NOT-Gate zeichnen
-    void drawNOTGate(T component) {
+    void drawNOTGate(Object component) {
         if (!(component instanceof Gate gate)) throw new IllegalArgumentException("Komponente ist kein Gatter.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1330,7 +1330,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Input in der ersten Spalte zeichnen
-    void drawInput(T component) { 
+    void drawInput(Object component) { 
         if (!(component instanceof Input input)) throw new IllegalArgumentException("Komponente ist kein Input.");
         // in die Mitte des Feldes gehen
         int x = getPixelPositionX(component);
@@ -1352,7 +1352,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Half-Adder zeichnen lassen
-    void drawHalfAdder(Circuit<Object> circuit) {
+    void drawHalfAdder(Circuit circuit) {
         // Schaltung komplett zurücksetzen
         circuit.deleteCircuit(); 
         circuit.turtle1.reset();
@@ -1392,10 +1392,9 @@ class Circuit<T> implements Serializable {
     }
 
     // Methode, die gespeicherte Objekte lädt
-    @SuppressWarnings("unchecked")
-    public Circuit<T> loadCircuit(String filename) {
+    public Circuit loadCircuit(String filename) {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(filename))) {
-            Circuit <T> loadedCircuit = (Circuit<T>) ois.readObject();
+            Circuit loadedCircuit = (Circuit) ois.readObject();
             this.width = loadedCircuit.width;
             this.height = loadedCircuit.height;
             this.turtle1 = new Turtle(this.width, this.height);
@@ -1510,14 +1509,14 @@ class Input implements Serializable {
 }
 
 // Verbindungen
-class Connection<T> implements Serializable {
+class Connection implements Serializable {
     private static final long serialVersionUID = 1L;
     
-    T source;
-    T destination;
+    Object source;
+    Object destination;
     int inputNumber;
 
-    Connection(T source, T destination, int inputNumber) {
+    Connection(Object source, Object destination, int inputNumber) {
         this.source = source;
         this.destination = destination;
         this.inputNumber = inputNumber;
@@ -1604,7 +1603,7 @@ c1.connectComponents(andGate1, xorGate1, 1);
 */
 
 /* Halfadder
-Circuit<Object> c1 = new Circuit<>("Half-Adder", 15, 6);
+Circuit c1 = new Circuit("Half-Adder", 15, 6);
 
 Input x1 = new Input("x1", 0); 
 Input x2 = new Input("x2", 0);

@@ -15,6 +15,137 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
+Clerk.markdown("""
+# Simulator für digitale Schaltungen
+## *Vorname:* Alexander
+## *Nachname:* Schmidt 
+## *Matrikelnummer:* 5502046
+
+## Zweck der Anwendung
+Der Simulator für digitale Schaltungen soll Nutzern ermöglichen, digitale Schaltkreise virtuell zu testen und zu analysieren. 
+Die Anwendung zielt darauf ab, ein Werkzeug zur Verfügung zu stellen, mit dem man etwas komplexe Schaltungen ohne physische Bauteile mit Hilfe der Turtle konstruieren und verstehen kann.
+
+## Wichitig: Das Porgramm wird nur mit der jshell gesteuert. Wenn beim ersten Versuch des Öffnens des Programmes ein Fehler auftritt, einfach noch mal öffnen, dann sollte es immer funktionieren.
+
+# Dokumentation 
+# Szenario 1 - Grundlegende Gatter
+
+## Ziel
+Ein Benutzer soll verschiedene grundlegende Gatter (NOT, AND, OR, NAND, NOR, XOR, XNOR) gemäß der IEC-Norm erstellen und deren Funktionsweise testen können. Zum Beispiel kann ein Benutzer ein AND-Gatter mit zwei Eingängen erstellen und die Logik überprüfen.
+
+### 1. **Gatter und Eingänge erstellen**
+
+#### Konstruktoren:
+- **`Input`**: Erstellt einen Eingang mit einem bestimmten Namen und optional einem Anfangswert (0 oder 1).
+  ```java
+  Input(String name, int inputValue);
+  Input(String name);
+  ```
+  **Beispiel:**
+  ```java
+  Input x1 = new Input("x1", 1);
+  Input x2 = new Input("x2", 0);
+  ```
+
+- **`Gate`**: Erstellt ein Gatter mit einem Typ (z. B. AND, OR) und einem Namen.
+  ```java
+  Gate(String type, String name);
+  ```
+  **Beispiel:**
+  ```java
+  Gate andGate = new Gate("AND", "AND1");
+  Gate orGate = new Gate("OR", "OR1");
+  ```
+
+### 2. **Komponenten hinzufügen**
+
+Die Methode `addComponent` fügt eine Komponente (z. B. ein Gatter oder einen Eingang) an eine bestimmte Position im Schaltungsfeld hinzu.
+```java
+void addComponent(int row, int col, Object component);
+```
+**Beispiel:**
+```java
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 10);
+c1.addComponent(2, 1, x1); // x1 in Spalte 2, Zeile 1 hinzufügen
+c1.addComponent(3, 1, x2);
+c1.addComponent(2, 3, andGate);
+```
+
+### 3. **Komponenten verbinden**
+
+Die Methode `connectComponents` verbindet die Ausgänge einer Quelle mit den Eingängen eines Ziels.
+```java
+void connectComponents(Object sourceComponent, Object destinationComponent, int inputNumber);
+```
+**Beispiel:**
+```java
+c1.connectComponents(x1, andGate, 1); // x1 mit Eingang 1 von andGate verbinden
+c1.connectComponents(x2, andGate, 2); // x2 mit Eingang 2 von andGate verbinden
+```
+
+### 4. **Schaltung auswerten**
+
+Die Methode `evaluateCircuit` berechnet die Logik für alle verbundenen Komponenten basierend auf den Eingabewerten.
+```java
+void evaluateCircuit();
+```
+**Beispiel:**
+```java
+c1.evaluateCircuit();
+```
+
+### 5. **Schaltung zeichnen**
+
+Die Methode `drawNewCircuit` zeichnet die gesamte Schaltung auf dem Feld neu.
+```java
+void drawNewCircuit();
+```
+
+### 6. **Wahrheitstabelle erstellen**
+Die Methode `drawTable` generiert eine Wahrheitstabelle für die Schaltung.
+```java
+void drawTable();
+```
+**Beispiel:**
+```java
+c1.drawTable();
+```
+
+## Beispielablauf: Erstellen eines AND-Gatters
+
+```java
+// Schaltkreis erstellen
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 10);
+
+// Eingänge erstellen
+Input x1 = new Input("x1", 1);
+Input x2 = new Input("x2", 0);
+
+// Gatter erstellen
+Gate andGate = new Gate("AND", "AND1");
+
+// Komponenten hinzufügen
+c1.addComponent(2, 1, x1);
+c1.addComponent(3, 1, x2);
+c1.addComponent(2, 3, andGate);
+
+// Komponenten verbinden
+c1.connectComponents(x1, andGate, 1);
+c1.connectComponents(x2, andGate, 2);
+
+// Schaltung auswerten
+c1.evaluateCircuit();
+
+// Schaltung zeichnen
+c1.drawNewCircuit();
+
+// Wahrheitstabelle erstellen
+c1.drawTable();
+```
+
+## Fazit
+Mit den oben genannten Methoden können Benutzer leicht grundlegende Gatter erstellen, Eingänge verbinden und die Logik der Schaltung überprüfen. Dies ermöglicht eine flexible und dynamische Analyse der Gatterlogik.
+""");
 
 class Circuit<T> implements Serializable {
     private static final long serialVersionUID = 1L;
