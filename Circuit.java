@@ -38,6 +38,7 @@ class Circuit<T> implements Serializable {
     // Konstruktor
     Circuit(String name, int cols, int rows) {
         this.turtle1 = new Turtle(this.width, this.height);
+        this.turtle2 = new Turtle(1600, 1000);
         this.components = new HashMap<>();
         this.firstInputPositions = new HashMap<>();
         this.secondInputPositions = new HashMap<>();
@@ -137,7 +138,7 @@ class Circuit<T> implements Serializable {
         outputCount = (int) outputCount; 
         if (outputCount > 6) {
             printConnections();
-            throw new IllegalArgumentException("Eine Auswertung ist nur mit bis zu sechs Verbinudungen möglich.");
+            throw new IllegalArgumentException("Eine Auswertung ist nur mit bis zu sechs Ausgängen möglich.");
         }  
 
         int rowHeight = 60;
@@ -203,17 +204,17 @@ class Circuit<T> implements Serializable {
             .count();
         outputCount = (int) outputCount;
         turtle2.moveTo(10, 30).penUp().forward(inputs.size() * 30 + 10);
-        for (int i = 0; i < outputCount; i++) turtle2.left(90).text("" + logicExpressions.get(i), null, 13, null).right(90).forward(230);
+        for (int i = 0; i < outputCount; i++) turtle2.left(90).text("" + logicExpressions.get(i), null, 13, null).right(90).forward(240);
 
         // alle kombinierten Outputs
-        turtle2.moveTo(110 + (15 + 30 * inputs.size()), 75).penUp(); // Start
+        turtle2.moveTo(115 + (15 + 30 * inputs.size()), 75).penUp(); // Start
         for (int i = 0; i < allOutputCombinations.size(); i++) {
             List<Integer> outputCombination = allOutputCombinations.get(i);
             for (int j = 0; j < outputCombination.size(); j++) {
                 int value = outputCombination.get(j);
                 // Output-Werte in die Tabelle schreiben
-                turtle2.left(90).text("" + value, null, 14, null).right(90).forward(230);
-                if ((j + 1) % outputCount == 0) turtle2.backward(outputCount + 230).right(90).moveTo(110 + (15 + 30 * inputs.size()), 75 + ((i + 1) * 60)).left(90);
+                turtle2.left(90).text("" + value, null, 14, null).right(90).forward(240);
+                if ((j + 1) % outputCount == 0) turtle2.backward(outputCount + 230).right(90).moveTo(115 + (15 + 30 * inputs.size()), 75 + ((i + 1) * 60)).left(90);
             }
         }
     }
@@ -266,7 +267,7 @@ class Circuit<T> implements Serializable {
                 if (conn.source instanceof Input input) return input.getInputName(); // Name des Inputs
                 else if (conn.source instanceof Gate sourcGate) return sourcGate.getName(); // Name als Quelle kommende Gate
         }
-        return "undefined";
+        return "";
     }
 
     // Generierung der Wahrheitstabelle für alle Outputs
@@ -1351,36 +1352,6 @@ class Circuit<T> implements Serializable {
         saveEndingOfInput(x, y, component);
     }
 
-    // Half-Adder zeichnen lassen
-    void drawHalfAdder(Circuit<Object> circuit) {
-        // Schaltung komplett zurücksetzen
-        circuit.deleteCircuit(); 
-        circuit.turtle1.reset();
-        circuit.drawCircuitField();
-        
-        // Eingänge erstellen
-        Input x1 = new Input("x1", 0);
-        Input x2 = new Input("x2", 0);
-    
-        // Gatter erstellen
-        Gate xorGate = new Gate("XOR", "Summe");
-        Gate andGate = new Gate("AND", "Übertrag");
-    
-        // Komponenten hinzufügen
-        circuit.addComponent(2, 1, x1); 
-        circuit.addComponent(3, 1, x2); 
-        circuit.addComponent(2, 3, xorGate); 
-        circuit.addComponent(4, 3, andGate); 
-    
-        // Komponenten verbinden
-        circuit.connectComponents(x1, xorGate, 1); 
-        circuit.connectComponents(x2, xorGate, 2); 
-        circuit.connectComponents(x1, andGate, 1); 
-        circuit.connectComponents(x2, andGate, 2);
-    
-        System.out.println("HalfAdder wurde erfolgreich gezeichnet.");
-    }
-    
     // Schaltung speichern
     void saveCircuit(String fileName) {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
@@ -1529,6 +1500,52 @@ class Connection<T> implements Serializable {
     }
 }
 
+// vorgefertigter HalfAdder
+class HalfAdder {
+    Circuit<Object> circuit;
+    Input x1;
+    Input x2;
+    Gate xorGate;
+    Gate andGate;
+
+    // Konstruktor nimmt eine bestehende Schaltung und fügt in ihr den HalfAdder ein
+    HalfAdder(Circuit<Object> circuit) {
+        this.circuit = circuit;
+        createHalfAdder();
+    }
+
+    private void createHalfAdder() {
+        // Eingänge erstellen
+        x1 = new Input("x1", 0);
+        x2 = new Input("x2", 0);
+    
+        // Gatter erstellen
+        xorGate = new Gate("XOR", "Summe");
+        andGate = new Gate("AND", "Übertrag");
+    
+        // Komponenten hinzufügen
+        circuit.addComponent(2, 1, x1); 
+        circuit.addComponent(3, 1, x2); 
+        circuit.addComponent(2, 3, xorGate); 
+        circuit.addComponent(4, 3, andGate); 
+    
+        // Komponenten verbinden
+        circuit.connectComponents(x1, xorGate, 1); 
+        circuit.connectComponents(x2, xorGate, 2); 
+        circuit.connectComponents(x1, andGate, 1); 
+        circuit.connectComponents(x2, andGate, 2);
+
+        System.out.println("HalfAdder wurde erfolgreich gezeichnet.");
+    }
+}
+
+// Tests
+
+/* 
+Circuit<Object> c1 = new Circuit<>("Half-Adder", 15, 6);
+HalfAdder halfAdder = new HalfAdder(c1);
+c1.setInput(halfAdder.x1, 1)
+*/
 
 // Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
 // Gate andGate1 = new Gate("and", "andGate1");

@@ -63,25 +63,25 @@ Ein Benutzer soll verschiedene grundlegende Gatter (NOT, AND, OR, NAND, NOR, XOR
 
 Die Methode `addComponent` fügt eine Komponente (z. B. ein Gatter oder einen Eingang) an eine bestimmte Position im Schaltungsfeld hinzu. Dabei ist zu beachten, dass Eingänge in die erste Spalte und Gatter nicht in die erste Spalte hinzugefügt werden können.
 ```java
-void addComponent(int row, int col, T component)
+${add}
 ```
 **Beispiel:**
 ```java
-Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 15, 6); // 15 Zeilen und 6 Spalten 
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 5); // 10 Zeilen und 5 Spalten 
 c1.addComponent(2, 1, x1); // x1 in Zeile 2, Spalte 1 hinzufügen
 c1.addComponent(3, 1, x2);
 c1.addComponent(2, 3, andGate1);
 ```
 #### Herausforderungen:
 - **Überprüfung von Positionen:** Es muss gewährleistet sein, dass die Komponente in eine gültige Position eingefügt wird (z. B. Eingänge nur in Spalte 1).
-- **Prüfung auf Überschneidungen:** Stellen Sie sicher, dass an einer Position keine andere Komponente bereits existiert.
+- **Prüfung auf Überschneidungen:** Stellen Sie sicher, dass an einer Position keine andere Komponente oder Kabel bereits existiert.
 - **Unterstützung unterschiedlicher Typen:** Die Methode muss sowohl mit `Input`- als auch mit `Gate`-Objekten umgehen können. Dies erfordert Typprüfungen und geeignete Zeichnungslogik für die Turtle.
 
 ### 3. **Komponenten verbinden**
 
 Die Methode `connectComponents` verbindet die Ausgänge einer Quelle mit den Eingängen eines Ziels.
 ```java
-void connectComponents(T sourceComponent, T destinationComponent, int inputNumber)
+${connect}
 ```
 **Beispiel:**
 ```java
@@ -102,15 +102,13 @@ c1.connectComponents(x2, andGate, 2); // x2 mit Eingang 2 von andGate verbinden 
 
 Die Methode `setInput` ändert den Wert eines Eingangs und aktualisiert automatisch die gesamte Schaltung. Nach dem Setzen wird die Schaltung sofort neu ausgewertet und gezeichnet.
 ```java
-void setInput(T component, int value)
+${setInput}
 ```
 **Beispiel:**
 ```java
 c1.setInput(x1, 1); // x1 auf HIGH (1) setzen
 c1.setInput(x2, 0); // x2 auf LOW (0) setzen
 ```
-### 4. **Eingang setzen**
-
 #### Herausforderungen:
 - **Echtzeitaktualisierung der Schaltung:** Nach dem Schalten eines Eingangs muss die gesamte Schaltung neu ausgewertet und gezeichnet werden.
 - **Logikfehler vermeiden:** Die Eingaben müssen korrekt auf 0 oder 1 begrenzt sein.
@@ -119,7 +117,7 @@ c1.setInput(x2, 0); // x2 auf LOW (0) setzen
 
 Die Methode `evaluateCircuit` berechnet die Logik für alle verbundenen Komponenten basierend auf den Eingabewerten. Diese Methode wird immer automatisch aufgerufen, sobald ein Eingang geschalten wird oder man Komponente verbindet. 
 ```java
-void evaluateCircuit()
+${evaluate}
 ```
 #### Herausforderungen:
 - **Iterative Auswertung:** Jede Komponente muss in der richtigen Reihenfolge ausgewertet werden, abhängig davon, welche Verbindungen existieren.
@@ -130,7 +128,7 @@ void evaluateCircuit()
 
 Die Methode `drawNewCircuit` zeichnet die gesamte Schaltung auf dem Feld neu. Diese Methode wird immer automatisch aufgerufen, sobald die Schaltung neu gezeichnet werden muss, um Veränderungen optisch in der Turtle zu sehen. 
 ```java
-void drawNewCircuit()
+${drawNew}
 ```
 #### Herausforderungen:
 - **Vollständige Aktualisierung:** Alle Verbindungen und Komponenten müssen erneut gezeichnet werden.
@@ -139,7 +137,7 @@ void drawNewCircuit()
 ### jshell:
 ```java
 // Schaltkreis erstellen
-Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 15, 6);
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 5);
 
 // Eingänge erstellen
 Input x1 = new Input("x1", 1);
@@ -162,13 +160,15 @@ c1.setInput(x1, 1);
 c1.setInput(x2, 1); 
 ```
 ### Turtle:
-""", Map.of("turtle1", Text.cutOut("./Circuit.java", "// "),
-            "turtle2", Text.cutOut("./Circuit.java", "// "),
-            "turtle3", Text.cutOut("./Circuit.java", "// "),
-            "turtle4", Text.cutOut("./Circuit.java", "// "),
-            "turtle5", Text.cutOut("./Circuit.java", "// "))));
+""", Map.of("add", Text.cutOut("./CircuitDoku.java", "// add"),
+            "connect", Text.cutOut("./CircuitDoku.java", "// connect"),
+            "setInput", Text.cutOut("./CircuitDoku.java", "// setInput"),
+            "evaluate", Text.cutOut("./CircuitDoku.java", "// evaluate"),
+            "drawNew", Text.cutOut("./CircuitDoku.java", "// drawNew"))));
 
-Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 15, 6);   
+turtle1.reset();
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 5);
+c1.deleteCircuit();   
 Input x1 = new Input("x1", 1);
 Input x2 = new Input("x2", 0);
 Gate andGate = new Gate("AND", "andGate");
@@ -180,6 +180,289 @@ c1.connectComponents(x2, andGate, 2);
 c1.setInput(x1, 1);
 c1.setInput(x2, 1);           
 
+Clerk.markdown("""
+---
+# Szenario 2 - Schaltungsaufbau
+## Ziel 
+in Benutzer erstellt eine Schaltung, die verschiedene Gatter miteinander verschaltet.
+Zum Beispiel: Der Benutzer kann aus NOT- und NAND-Gatter eine AND- oder
+OR-Schaltung bauen und die Ausgabe auslesen.
+
+## Beispielablauf: AND-Schaltung aus NOT und NAND
+## jshell:
+```java
+// Schaltkreis erstellen
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 5);
+
+// Eingänge erstellen
+Input x1 = new Input("x1", 1);
+Input x2 = new Input("x2", 1);
+
+// Gatter erstellen
+Gate notGate1 = new Gate("NOT", "notGate1");
+Gate notGate2 = new Gate("NOT", "notGate2");
+Gate nandGate = new Gate("NAND", "nandGate");
+
+// Komponenten hinzufügen
+c1.addComponent(2, 1, x1);
+c1.addComponent(3, 1, x2);
+c1.addComponent(2, 2, notGate1);
+c1.addComponent(3, 2, notGate2);
+c1.addComponent(3, 3, nandGate);
+
+// Komponenten verbinden
+c1.connectComponents(x1, notGate1, 1); 
+c1.connectComponents(x2, notGate2, 1);
+c1.connectComponents(notGate1, nandGate, 1);
+c1.connectComponents(notGate2, nandGate, 2);
+
+// Eingänge schalten
+c1.setInput(x1, 1); 
+c1.setInput(x2, 1);
+```
+### Turtle:
+""");
+turtle1.reset();
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 5);
+c1.deleteCircuit(); 
+Input x1 = new Input("x1", 1);
+Input x2 = new Input("x2", 1);
+Gate notGate1 = new Gate("NOT", "notGate1");
+Gate notGate2 = new Gate("NOT", "notGate2");
+Gate nandGate = new Gate("NAND", "nandGate");
+c1.addComponent(2, 1, x1);
+c1.addComponent(3, 1, x2);
+c1.addComponent(2, 2, notGate1);
+c1.addComponent(3, 2, notGate2);
+c1.addComponent(3, 3, nandGate);
+c1.connectComponents(x1, notGate1, 1); 
+c1.connectComponents(x2, notGate2, 1);
+c1.connectComponents(notGate1, nandGate, 1);
+c1.connectComponents(notGate2, nandGate, 2);
+c1.setInput(x1, 1); 
+c1.setInput(x2, 1);
+
+Clerk.markdown(
+    Text.fillOut(
+"""
+---
+# Szenario 3 - Schaltungsanalyse
+## Ziel 
+3.3. Szenario 3 - Schaltungsanalyse
+Ein Benutzer erstellt eine komplexere Schaltung, die er daraufhin analysieren kann. Dies hilft einem, die einzelnen Zwischenschritte der Schaltung zu verstehen.
+Zum Beispiel: Der Benutzer kann sich eine Tabelle erzeugen lassen, mit allen kombinierten HIGH/LOW Eingängen, Zwischenausgaben bzw. Zwischenschritte und Endausgaben.
+
+## Wichtige Methoden
+
+### 1. **Gesamte Wahrheitstabelle zeichnen**
+Die Methode `drawTable` erstellt die gesamte Wahrheitstabelle der Schaltung, indem sie das Tabellenlayout in einer neuen Turtle zeichnet, die Eingabekombinationen und die Ergebnisse aller Gatter in die Tabelle einträgt.
+
+```java
+${drawTable}
+```
+
+#### Ablauf:
+1. **Tabellenlayout zeichnen:** Die Methode `drawTableFrame` zeichnet das Gitter der Tabelle basierend auf der Anzahl der Eingänge und Ausgänge.
+2. **Eingabekombinationen einfügen:** Die Methode `drawInputValuesInTable` generiert alle möglichen HIGH/LOW-Eingangskombinationen und trägt sie ein.
+3. **Gatterausgaben einfügen:** Die Methode `drawOuputValuesInTable` analysiert die Ergebnisse der Gatter und fügt diese der Tabelle hinzu.
+
+### 2. **Tabellenlayout zeichnen**
+
+Die Methode `drawTableFrame` erstellt das Layout der Tabelle. Sie berechnet die benötigte Höhe basierend auf der Anzahl der Eingänge und Ausgänge und zeichnet die Gitterlinien.
+
+```java
+${tableFrame}
+```
+
+#### Herausforderungen:
+- **Berechnung der Tabellenhöhe:** Die Höhe der Tabelle wird dynamisch anhand der Anzahl der Eingangskombinationen berechnet.
+- **Begrenzung der Ausgänge:** Maximal sechs Ausgänge sind erlaubt. Bei mehr Ausgängen wird eine Ausnahme ausgelöst.
+- **Einteilung in Eingangs- und Ausgangsbereich:** Die Tabelle wird in einen Bereich für Eingabekombinationen und einen Bereich für Gatterausgaben unterteilt.
+
+### 3. **Eingabekombinationen schreiben**
+
+Die Methode `drawInputValuesInTable` generiert alle möglichen Kombinationen von HIGH/LOW für die Eingänge und trägt sie in die Tabelle ein.
+
+```java
+${inputValues}
+```
+
+#### Herausforderungen:
+- **Generierung aller Kombinationen:** Mithilfe der Methode `generateInputCombinations` wird eine Liste aller möglichen HIGH/LOW-Kombinationen erstellt.
+- **Platzierung der Werte:** Die Werte werden korrekt in die Zellen der Tabelle geschrieben.
+- **Flexibilität:** Die Methode funktioniert dynamisch für beliebige Eingangsanzahlen.
+
+### 4. **Gatterausgaben schreiben**
+
+Die Methode `drawOuputValuesInTable` berechnet die Logik der Gatter für alle Eingangskombinationen und trägt die Ergebnisse in die Tabelle ein.
+
+```java
+${outputValues}
+```
+
+#### Herausforderungen:
+- **Logikauswertung:** Die Methode `evaluateLogicForAllInputs` berechnet die Ergebnisse aller Gatter basierend auf den Eingangskombinationen.
+- **Sortierung der Gatter:** Mithilfe der Methode `getSortedOutputs` werden die Gatter so sortiert, dass sie in der richtigen Reihenfolge ausgewertet werden.
+- **Platzierung der Ausgaben:** Die Ergebnisse der Gatter werden dynamisch in die Tabelle eingetragen.
+
+### 5. **Generierung der Wahrheitstabelle für alle Eingänge**
+
+Die Methode `generateInputCombinations` erstellt eine Liste aller möglichen HIGH/LOW-Kombinationen für die Eingänge.
+
+```java
+${evalInputs}
+```
+
+#### Ablauf:
+1. **Berechnung der Kombinationen:** Es werden `2^numberOfInputs` Kombinationen generiert.
+2. **Bitweise Generierung:** Für jede Kombination wird geprüft, ob ein Bit HIGH oder LOW ist.
+
+### 6. **Logik aller Ausgänge bewerten**
+
+Die Methode `evaluateLogicForAllInputs` berechnet für jede Eingabekombination die Ausgänge aller Gatter.
+
+```java
+${evalOutputs}
+```
+
+#### Ablauf:
+1. **Setzen der Eingänge:** Die Werte aller Eingänge werden basierend auf der aktuellen Kombination gesetzt.
+2. **Schaltung auswerten:** Die Methode `evaluateCircuit` berechnet die Ausgänge aller Gatter.
+3. **Ergebnisse speichern:** Die Ausgänge aller Gatter werden in der Reihenfolge gespeichert, die durch `getSortedOutputs` bestimmt wird.
+
+## Beispielablauf: Analyse einer komplexen Schaltung 
+### jshell:
+```java
+// Schaltkreis erstellen
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 5);
+
+// Eingänge erstellen
+Input x1 = new Input("x1");
+Input x2 = new Input("x2");
+
+// Gatter erstellen
+Gate nandGate1 = new Gate("NAND", "nandGate1");
+Gate nandGate2 = new Gate("NAND", "nandGate2");
+Gate nandGate3 = new Gate("NAND", "nandGate3");
+Gate nandGate4 = new Gate("NAND", "nandGate4");
+Gate notGate = new Gate("NOT", "notGate");
+
+// Komponenten hinzufügen
+c1.addComponent(2, 1, x1);
+c1.addComponent(4, 1, x2);
+c1.addComponent(3, 3, nandGate1);
+c1.addComponent(2, 5, nandGate2);
+c1.addComponent(4, 5, nandGate3);
+c1.addComponent(3, 7, nandGate4);
+c1.addComponent(3, 9, notGate);
+
+// Komponenten verbinden
+c1.connectComponents(x1, nandGate2, 1);
+c1.connectComponents(x1, nandGate1, 1);
+c1.connectComponents(x2, nandGate3, 2);
+c1.connectComponents(x2, nandGate1, 2);
+c1.connectComponents(nandGate1, nandGate2, 2);
+c1.connectComponents(nandGate1, nandGate3, 1);
+c1.connectComponents(nandGate2, nandGate4, 1);
+c1.connectComponents(nandGate3, nandGate4, 2);
+c1.connectComponents(nandGate4, notGate, 1);
+
+// Schaltung analysieren und Wahrheitstabelle ausgeben 
+c1.drawTable();
+```
+### Turtle:
+""", Map.of("drawTable", Text.cutOut("./CircuitDoku.java", "// drawTable"),
+            "tableFrame", Text.cutOut("./CircuitDoku.java", "// tableFrame"),
+            "inputValues", Text.cutOut("./CircuitDoku.java", "// inputValues"),
+            "outputValues", Text.cutOut("./CircuitDoku.java", "// outputValues"),
+            "evalInputs", Text.cutOut("./CircuitDoku.java", "// evalInputs"),
+            "evalOutputs", Text.cutOut("./CircuitDoku.java", "// evalOutputs"))));
+
+turtle1.reset();
+Circuit<Object> c1 = new Circuit<>("Schaltkreis 1", 10, 5);
+c1.deleteCircuit();  
+Input x1 = new Input("x1");
+Input x2 = new Input("x2");
+Gate nandGate1 = new Gate("NAND", "nandGate1");
+Gate nandGate2 = new Gate("NAND", "nandGate2");
+Gate nandGate3 = new Gate("NAND", "nandGate3");
+Gate nandGate4 = new Gate("NAND", "nandGate4");
+Gate notGate = new Gate("NOT", "notGate");
+c1.addComponent(2, 1, x1);
+c1.addComponent(4, 1, x2);
+c1.addComponent(3, 3, nandGate1);
+c1.addComponent(2, 5, nandGate2);
+c1.addComponent(4, 5, nandGate3);
+c1.addComponent(3, 7, nandGate4);
+c1.addComponent(3, 9, notGate);
+c1.connectComponents(x1, nandGate2, 1);
+c1.connectComponents(x1, nandGate1, 1);
+c1.connectComponents(x2, nandGate3, 2);
+c1.connectComponents(x2, nandGate1, 2);
+c1.connectComponents(nandGate1, nandGate2, 2);
+c1.connectComponents(nandGate1, nandGate3, 1);
+c1.connectComponents(nandGate2, nandGate4, 1);
+c1.connectComponents(nandGate3, nandGate4, 2);
+c1.connectComponents(nandGate4, notGate, 1);
+c1.drawTable();
+
+Clerk.markdown(
+    Text.fillOut(
+"""
+---
+# Szenario 4 - Halbaddierer
+## Ziel
+Ein Benutzer soll die Möglichkeit haben, einen Halbaddierer zu erstellen oder einen vorgefertigten Halbaddierer zu nutzen.  
+Der Halbaddierer kann zwei Binärzahlen (Eingänge) addieren und gibt die **Summe** und den **Übertrag (Carry)** aus.
+
+### 1. **Halbaddierer manuell erstellen**
+
+Ein Halbaddierer besteht aus zwei Eingängen (`x1`, `x2`), einem XOR-Gatter für die Summe und einem AND-Gatter für den Übertrag.  
+Die Komponenten können manuell erstellt und verbunden werden.
+
+## Beispiel:
+### jshell:
+```java
+// Schaltkreis erstellen
+Circuit<Object> c1 = new Circuit<>("Halbaddierer", 10, 5);
+
+// Eingänge erstellen
+Input x1 = new Input("x1", 0); 
+Input x2 = new Input("x2", 0);
+
+// Gatter erstellen
+Gate xorGate = new Gate("XOR", "Summe");
+Gate andGate = new Gate("AND", "Übertrag");
+
+// Komponenten hinzufügen
+c1.addComponent(2, 1, x1);
+c1.addComponent(3, 1, x2);
+c1.addComponent(2, 3, xorGate);
+c1.addComponent(4, 3, andGate);
+
+// Komponenten verbinden
+c1.connectComponents(x1, xorGate, 1); 
+c1.connectComponents(x2, xorGate, 2);  
+c1.connectComponents(x1, andGate, 1);  
+c1.connectComponents(x2, andGate, 2); 
+
+// Eingänge schalten
+c1.setInput("x1", 1); 
+c1.setInput("x2", 1);
+```
+### 2. **Vorgefertigten Halbaddierer verwenden**
+
+Die Klasse `HalfAdder` ermöglicht es, einen Halbaddierer direkt zu erstellen und in den Schaltkreis einzufügen.
+
+```java
+${0}
+```
+## Beispiel:
+### jshell:
+```java
+```
+""", Text.cutOut("./CircuitDoku.java", "// drawHalfAdder")));
+
 class Circuit<T> implements Serializable {
     private static final long serialVersionUID = 1L;
     private int maxRows; 
@@ -190,7 +473,7 @@ class Circuit<T> implements Serializable {
     private Map<T, Point> outputPositions; // key: Komponente, value: Punkt
     private List<Connection<T>> connections; // Liste der verbundenen Komponente 
     private List<Point> wirePoints; // speichert die Punkte ab, wo sich ein Kabel befindet
-    private transient Turtle turtle1;
+    private transient Turtle turtle1  = new Turtle(1100, 600);
     private transient Turtle turtle2;
     private int width = 1600;
     private int height = 700;
@@ -201,7 +484,6 @@ class Circuit<T> implements Serializable {
     
     // Konstruktor
     Circuit(String name, int cols, int rows) {
-        this.turtle1 = new Turtle(this.width, this.height);
         this.components = new HashMap<>();
         this.firstInputPositions = new HashMap<>();
         this.secondInputPositions = new HashMap<>();
@@ -278,8 +560,9 @@ class Circuit<T> implements Serializable {
     }
 
     // gesamte Wahrheitstabelle zeichnen lassen
+    // drawTable
     void drawTable() {
-        turtle2 = new Turtle(1600, 1000);
+        turtle2 = new Turtle(1600, 400);
         turtle2.reset();
         // Tabellemgitter zeichnen
         drawTableFrame();
@@ -290,8 +573,10 @@ class Circuit<T> implements Serializable {
         // Gate-Outputs-Kombinationen schreiben
         drawOuputValuesInTable();
     }
+    // drawTable
 
     // Tabelle zeichnen
+    // tableFrame
     void drawTableFrame() {
         // Anzahl der Verbindungen abspeichern
         long outputCount = connections.stream()
@@ -301,7 +586,7 @@ class Circuit<T> implements Serializable {
         outputCount = (int) outputCount; 
         if (outputCount > 6) {
             printConnections();
-            throw new IllegalArgumentException("Eine Auswertung ist nur mit bis zu sechs Verbinudungen möglich.");
+            throw new IllegalArgumentException("Eine Auswertung ist nur mit bis zu sechs Ausgängen möglich.");
         }  
 
         int rowHeight = 60;
@@ -321,10 +606,12 @@ class Circuit<T> implements Serializable {
 
         // Output-Teil der Tabelle zeichnen
         for (int i = 0; i < outputCount; i++) 
-            turtle2.left(90).forward(30).penUp().backward(30).penDown().backward(tableHeight).penUp().forward(tableHeight).right(90).penDown().forward(230);      
+            turtle2.left(90).forward(30).penUp().backward(30).penDown().backward(tableHeight).penUp().forward(tableHeight).right(90).penDown().forward(240);      
     }
+    // tableFrame
 
     // Inputs-Kombinationen schreiben
+    // inputValues
     void drawInputValuesInTable() {
         // Anzahl der Verbindungen abspeichern
         List<Input> inputs = new ArrayList<>();
@@ -351,8 +638,10 @@ class Circuit<T> implements Serializable {
             }
         }
     }
+    // inputValues
 
     // Alle Outputs der Wahrheitstabelle
+    // outputValues
     void drawOuputValuesInTable() {
         List<String> logicExpressions = getConnectionLogicStrings();
         List<List<Integer>> allOutputCombinations = evaluateLogicForAllInputs();
@@ -367,22 +656,24 @@ class Circuit<T> implements Serializable {
             .count();
         outputCount = (int) outputCount;
         turtle2.moveTo(10, 30).penUp().forward(inputs.size() * 30 + 10);
-        for (int i = 0; i < outputCount; i++) turtle2.left(90).text("" + logicExpressions.get(i), null, 13, null).right(90).forward(230);
+        for (int i = 0; i < outputCount; i++) turtle2.left(90).text("" + logicExpressions.get(i), null, 13, null).right(90).forward(240);
 
         // alle kombinierten Outputs
-        turtle2.moveTo(110 + (15 + 30 * inputs.size()), 75).penUp(); // Start
+        turtle2.moveTo(115 + (15 + 30 * inputs.size()), 75).penUp(); // Start
         for (int i = 0; i < allOutputCombinations.size(); i++) {
             List<Integer> outputCombination = allOutputCombinations.get(i);
             for (int j = 0; j < outputCombination.size(); j++) {
                 int value = outputCombination.get(j);
                 // Output-Werte in die Tabelle schreiben
-                turtle2.left(90).text("" + value, null, 14, null).right(90).forward(230);
-                if ((j + 1) % outputCount == 0) turtle2.backward(outputCount + 230).right(90).moveTo(110 + (15 + 30 * inputs.size()), 75 + ((i + 1) * 60)).left(90);
+                turtle2.left(90).text("" + value, null, 14, null).right(90).forward(240);
+                if ((j + 1) % outputCount == 0) turtle2.backward(outputCount + 240).right(90).moveTo(115 + (15 + 30 * inputs.size()), 75 + ((i + 1) * 60)).left(90);
             }
         }
     }
+    // outputValues
 
     // Generierung der Wahrheitstabelle für alle Inputs
+    // evalInputs
     List<List<Integer>> generateInputCombinations(int numberOfInputs) {
         List<List<Integer>> combinations = new ArrayList<>();
         int totalCombinations = (int) Math.pow(2, numberOfInputs); // 2^numberOfInputs
@@ -398,6 +689,7 @@ class Circuit<T> implements Serializable {
         }
         return combinations;
     }
+    // evalInputs
 
     // Name der Verbindungen abrufen
     List<String> getConnectionLogicStrings() {
@@ -430,10 +722,11 @@ class Circuit<T> implements Serializable {
                 if (conn.source instanceof Input input) return input.getInputName(); // Name des Inputs
                 else if (conn.source instanceof Gate sourcGate) return sourcGate.getName(); // Name als Quelle kommende Gate
         }
-        return "undefined";
+        return "";
     }
 
     // Generierung der Wahrheitstabelle für alle Outputs
+    // evalOutputs
     List<List<Integer>> evaluateLogicForAllInputs() {
         // alle Input-Komponenten sammeln
         List<T> inputList = components.values().stream()
@@ -479,6 +772,7 @@ class Circuit<T> implements Serializable {
         
         return allResults;
     }
+    // evalOutputs
 
     // Liste von rechts nach links sortierten Gates rausbekommen
     List<T> getSortedOutputs() {
@@ -594,16 +888,19 @@ class Circuit<T> implements Serializable {
         }
     }
 
+    
     // Komponente hinzufügen
+    // add
     void addComponent(int row, int col, T component) {
         // vorhandene Position prüfen
-        if (!isValidPosition(row, col)) throw new IllegalArgumentException("Ungültige Position: (" + row + ", " + col + "). Diese Position existiert nicht im Schaltungsfeld.");
+        if (!isValidPosition(row, col)) 
+            throw new IllegalArgumentException("Ungültige Position: (" + row + ", " + col + "). Diese Position existiert nicht im Schaltungsfeld.");
         
         // Spalte 1 auf Input-Objekte prüfen
         if (col == 1 && !(component instanceof Input)) throw new IllegalArgumentException("Spalte 1 ist nur für Input-Objekte reserviert.");
 
         // andere Spalten auf Input-Objekte prüfen
-        if (col != 1 && (component instanceof Input)) throw new IllegalArgumentException("Input-Objekte duerfen nur in Spalte 1 hinzugefuegt werden.");
+        if (col != 1 && (component instanceof Input)) throw new IllegalArgumentException("Input-Objekte dürfen nur in Spalte 1 hinzugefügt werden.");
         
         Point position = new Point(col, row);
         Rectangle gateArea = getGateArea(row, col);
@@ -612,11 +909,13 @@ class Circuit<T> implements Serializable {
         if (components.containsKey(position)) throw new IllegalArgumentException("An dieser Position existiert bereits eine Komponente!");
 
         // bereits existierendes Objekt im Schaltungfeld prüfen
-        if (components.containsValue(component)) throw new IllegalArgumentException("Das Objekt " + component + " existiert bereits im Schaltungsfeld und kann nicht erneut hinzugefügt werden.");
+        if (components.containsValue(component)) 
+            throw new IllegalArgumentException("Das Objekt " + component + " existiert bereits im Schaltungsfeld und kann nicht erneut hinzugefügt werden.");
 
         // prüft, ob der Bereich durch ein Kabel blockiert ist
         for (Point wirePoint : wirePoints) 
-            if (gateArea.contains(wirePoint)) throw new IllegalArgumentException("In dieser Zelle verläuft ein Kabel. Komponente kann hier nicht platziert werden.");
+            if (gateArea.contains(wirePoint)) 
+                throw new IllegalArgumentException("In dieser Zelle verläuft ein Kabel. Komponente kann hier nicht platziert werden.");
 
         // Komponente zur Map hinzufügen
         components.put(position, component);
@@ -628,8 +927,9 @@ class Circuit<T> implements Serializable {
         else if (component instanceof Input) drawInput(component);
         else throw new IllegalArgumentException("Unbekannter Komponententyp: " + component.getClass().getSimpleName());
 
-        System.out.println(component + " an Position (" + row + ", " + col + ") hinzugefuegt.");
+        System.out.println(component + " an Position (" + row + ", " + col + ") hinzugefügt.");
     }
+    // add
 
     // Komponente hinzufügen ohne Überprüfung, um dynamisch zeichnen zu können
     void addComponentWithoutChecks(int row, int col, T component) {
@@ -663,6 +963,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Komponente verbinden
+    // connect
     void connectComponents(T sourceComponent, T destinationComponent, int inputNumber) {        
         // Position prüfen
         if (!isValidConnection(sourceComponent, destinationComponent)) return;
@@ -675,7 +976,8 @@ class Circuit<T> implements Serializable {
         if (sourceOutput == null || destInput == null) throw new IllegalArgumentException("Verbindung nicht möglich. Komponentenposition nicht gefunden.");
 
         // doppelte Verbindungen vermeiden
-        if (isConnectionPresent(destinationComponent, inputNumber)) throw new IllegalArgumentException("Verbindung existiert bereits: " + sourceComponent + " -> " + destinationComponent + " (Eingang " + inputNumber + ")");
+        if (isConnectionPresent(destinationComponent, inputNumber)) 
+            throw new IllegalArgumentException("Verbindung existiert bereits: " + sourceComponent + " -> " + destinationComponent + " (Eingang " + inputNumber + ")");
 
         // prüfen, ob ein offset in x-Richtung erforderlich ist
         boolean applyXOffset = connections.stream()
@@ -708,6 +1010,7 @@ class Circuit<T> implements Serializable {
             isRedrawing = false;   // Schutz deaktivieren
         }
     }
+    // connect
 
     // Verbindungen neuzeichnen
     void reconnectComponents() {
@@ -1057,6 +1360,7 @@ class Circuit<T> implements Serializable {
     }    
 
     // Eingänge schalten
+    // setInput
     void setInput(T component, int value) {
         isRedrawing = true;
 
@@ -1070,6 +1374,7 @@ class Circuit<T> implements Serializable {
         
         isRedrawing = false;
     }
+    // setInput
 
     // Ouput der jeweiligen Komponente abrufen
     int getComponentOutput(T component) {
@@ -1079,6 +1384,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Schaltung auswerten
+    // evaluate
     void evaluateCircuit() { 
         boolean hasChanged;
 
@@ -1113,6 +1419,7 @@ class Circuit<T> implements Serializable {
             }
         } while (hasChanged); // wiederholen, solange sich Outputs ändern
     }
+    // evaluate
 
     // Position einer Komponente herausfinden
     String getPosition(T component) {
@@ -1171,6 +1478,7 @@ class Circuit<T> implements Serializable {
     }
 
     // alles wieder neu zeichnen 
+    // drawNew
     void drawNewCircuit() {
         turtle1.reset();
         drawCircuitField();
@@ -1179,9 +1487,9 @@ class Circuit<T> implements Serializable {
             T component = entry.getValue(); 
             addComponentWithoutChecks(position.y, position.x, component);
         }
-
         reconnectComponents(); // Kabel wieder zeichnen
     }
+    // drawNew  
     
     // vertikal ausgerichtetes Rechteck
     void drawSmallSquare() {
@@ -1514,36 +1822,6 @@ class Circuit<T> implements Serializable {
         }
         saveEndingOfInput(x, y, component);
     }
-
-    // Half-Adder zeichnen lassen
-    void drawHalfAdder(Circuit<Object> circuit) {
-        // Schaltung komplett zurücksetzen
-        circuit.deleteCircuit(); 
-        circuit.turtle1.reset();
-        circuit.drawCircuitField();
-        
-        // Eingänge erstellen
-        Input x1 = new Input("x1", 0);
-        Input x2 = new Input("x2", 0);
-    
-        // Gatter erstellen
-        Gate xorGate = new Gate("XOR", "Summe");
-        Gate andGate = new Gate("AND", "Übertrag");
-    
-        // Komponenten hinzufügen
-        circuit.addComponent(2, 1, x1); 
-        circuit.addComponent(3, 1, x2); 
-        circuit.addComponent(2, 3, xorGate); 
-        circuit.addComponent(4, 3, andGate); 
-    
-        // Komponenten verbinden
-        circuit.connectComponents(x1, xorGate, 1); 
-        circuit.connectComponents(x2, xorGate, 2); 
-        circuit.connectComponents(x1, andGate, 1); 
-        circuit.connectComponents(x2, andGate, 2);
-    
-        System.out.println("HalfAdder wurde erfolgreich gezeichnet.");
-    }
     
     // Schaltung speichern
     void saveCircuit(String fileName) {
@@ -1693,6 +1971,46 @@ class Connection<T> implements Serializable {
     }
 }
 
+// vorgefertigter HalfAdder
+// drawHalfAdder
+class HalfAdder {
+    Circuit<Object> circuit;
+    Input x1;
+    Input x2;
+    Gate xorGate;
+    Gate andGate;
+
+    // Konstruktor nimmt eine bestehende Schaltung und fügt in ihr den HalfAdder ein
+    HalfAdder(Circuit<Object> circuit) {
+        this.circuit = circuit; 
+        createHalfAdder();
+    }
+
+    private void createHalfAdder() {
+        // Eingänge erstellen
+        x1 = new Input("x1", 0);
+        x2 = new Input("x2", 0);
+    
+        // Gatter erstellen
+        xorGate = new Gate("XOR", "Summe");
+        andGate = new Gate("AND", "Übertrag");
+    
+        // Komponenten hinzufügen
+        circuit.addComponent(2, 1, x1); 
+        circuit.addComponent(3, 1, x2); 
+        circuit.addComponent(2, 3, xorGate); 
+        circuit.addComponent(4, 3, andGate); 
+    
+        // Komponenten verbinden
+        circuit.connectComponents(x1, xorGate, 1); 
+        circuit.connectComponents(x2, xorGate, 2); 
+        circuit.connectComponents(x1, andGate, 1); 
+        circuit.connectComponents(x2, andGate, 2);
+
+        System.out.println("HalfAdder wurde erfolgreich gezeichnet.");
+    }
+}
+// drawHalfAdder
 
 // Circuit<Object> c1 = new Circuit<>("Circ 1", 15, 10);
 // Gate andGate1 = new Gate("and", "andGate1");
