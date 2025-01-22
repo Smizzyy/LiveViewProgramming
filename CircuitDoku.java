@@ -460,8 +460,24 @@ ${0}
 ## Beispiel:
 ### jshell:
 ```java
+// Schaltkreis erstellen
+Circuit<Object> c1 = new Circuit<>("Halbaddierer", 10, 5);
+
+// Half-Adder hinzufügen
+HalfAdder halfAdder = new HalfAdder(c1);
+
+// Eingänge setzen
+c1.setInput(halfAdder.x1, 1);
+c1.setInput(halfAdder.x2, 1);
 ```
+### Turtle bei beiden Beispielen gleich:
 """, Text.cutOut("./CircuitDoku.java", "// drawHalfAdder")));
+turtle1.reset();
+Circuit<Object> c1 = new Circuit<>("Halbaddierer", 10, 5);
+c1.deleteCircuit(); 
+HalfAdder halfAdder = new HalfAdder(c1);
+c1.setInput(halfAdder.x1, 1);
+c1.setInput(halfAdder.x2, 1);
 
 class Circuit<T> implements Serializable {
     private static final long serialVersionUID = 1L;

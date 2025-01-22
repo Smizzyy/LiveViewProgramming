@@ -50,11 +50,62 @@ class Circuit<T> implements Serializable {
         drawCircuitField();
     }
 
-    // Konstruktor zum Laden
-    Circuit(String name, String fileName) {
-        Circuit<T> loadedCircuit = loadCircuit(fileName);
-        if (loadedCircuit == null) throw new IllegalArgumentException("Fehler beim Laden der Datei: " + fileName);
-        System.out.println("Schaltkreis " + fileName + " wurde erfolgreich geladen.");
+    void copyFrom(Circuit<T> loadedCircuit) { 
+        this.width = loadedCircuit.width;
+        this.height = loadedCircuit.height;
+        this.maxCols = loadedCircuit.maxCols;
+        this.maxRows = loadedCircuit.maxRows;
+        this.turtle1 = new Turtle(this.width, this.height);
+        this.turtle2 = new Turtle(1600, 1000);
+        this.drawCircuitField();
+        this.components.clear();
+        for (Map.Entry<Point, T> entry : loadedCircuit.components.entrySet()) {
+            Point position = entry.getKey();
+            T component = entry.getValue(); 
+             // Falls das Objekt ein Gate oder Input ist, Referenz aktualisieren
+            this.components.put(position, component);
+            this.addComponentWithoutChecks(position.y, position.x, component);
+            if (component instanceof Gate gate) {
+                component = this.getComponentByName(gate.getName());
+                System.out.println(((Gate)component).getName());
+            } else if (component instanceof Input input) {
+                component = this.getComponentByName(input.getInputName());
+                System.out.println(((Input)component).getInputName());
+            }
+            System.out.println(component + " an Position (" + position.y + ", " + position.x + ") hinzugefügt.");
+        }
+
+        this.connections = new ArrayList<>();
+        this.firstInputPositions.clear();
+        this.secondInputPositions.clear();
+        this.outputPositions.clear();
+
+        for (Connection<T> connection : loadedCircuit.connections) {
+            T source = connection.source;
+            T destination = connection.destination;
+            int inputNumber = connection.inputNumber;
+    
+            // Positionen der Eingänge und des Ausgangs aktualisieren
+            this.firstInputPositions.put(destination, loadedCircuit.firstInputPositions.get(destination));
+            this.secondInputPositions.put(destination, loadedCircuit.secondInputPositions.get(destination));
+            this.outputPositions.put(source, loadedCircuit.outputPositions.get(source));
+    
+            // Verbindung hinzufügen und zeichnen
+            if (this.components.containsValue(source) && this.components.containsValue(destination)) {
+                this.connectComponents(source, destination, inputNumber);
+            }
+        }
+    }
+
+    public T getComponentByName(String name) {
+        for (T component : components.values()) {
+            if (component instanceof Gate gate && gate.getName().equals(name)) {
+                return component;
+            } else if (component instanceof Input input && input.getInputName().equals(name)) {
+                return component;
+            }
+        }
+        throw new IllegalArgumentException("Komponente mit dem Namen " + name + " nicht gefunden.");
     }
 
     // einzelenes Quadrat im Feld
@@ -1353,7 +1404,7 @@ class Circuit<T> implements Serializable {
     }
 
     // Schaltung speichern
-    void saveCircuit(String fileName) {
+/*    void saveCircuit(String fileName) {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
             oos.writeObject(this);
             System.out.println("Datei " + fileName +" wurde gespeichert.");
@@ -1389,6 +1440,7 @@ class Circuit<T> implements Serializable {
             return null;
         }
     }
+*/
 }
 
 // Gatter mit verschiedener Logik
@@ -1539,9 +1591,39 @@ class HalfAdder {
     }
 }
 
+class CircuitHandler<T> {
+
+    // Methode zum Speichern der Schaltung
+    public void saveCircuit(Circuit<T> circuit, String fileName) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
+            oos.writeObject(circuit);
+            System.out.println("Schaltung erfolgreich in " + fileName + " gespeichert.");
+        } catch (IOException e) {
+            System.err.println("Fehler beim Speichern der Schaltung: " + fileName);
+            e.printStackTrace();
+        }
+    }
+
+    // Methode zum Laden einer Schaltung und Wiedereinfügen in das Feld
+    @SuppressWarnings("unchecked")
+    public void loadCircuit(String fileName, Circuit<T> targetCircuit) {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+            Circuit<T> loadedCircuit = (Circuit<T>) ois.readObject();
+            System.out.println("Schaltung erfolgreich aus " + fileName + " geladen.");
+
+            // Übertragen der Daten auf das Ziel-Circuit-Objekt
+            targetCircuit.copyFrom(loadedCircuit);
+
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Fehler beim Laden der Schaltung: " + fileName);
+            e.printStackTrace();
+        }
+    }
+}
+
 // Tests
 
-/* 
+/* Halbaddierer einfügen
 Circuit<Object> c1 = new Circuit<>("Half-Adder", 15, 6);
 HalfAdder halfAdder = new HalfAdder(c1);
 c1.setInput(halfAdder.x1, 1)
@@ -1639,6 +1721,13 @@ c1.connectComponents(x2, xorGate, 2);
 c1.connectComponents(x1, andGate, 1);  
 c1.connectComponents(x2, andGate, 2);  
 c1.drawTable();
+
+CircuitHandler<Object> handler = new CircuitHandler<>();
+handler.saveCircuit(c1, "HalfAdder.ser");
+Clerk.clear()
+Circuit<Object> c2 = new Circuit<>("Half-Adder", 15, 6);
+CircuitHandler<Object> handler = new CircuitHandler<>();
+handler.loadCircuit("HalfAdder.ser", c2);
 */
 
 /*
