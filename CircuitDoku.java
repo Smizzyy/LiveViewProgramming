@@ -29,6 +29,63 @@ Die Anwendung zielt darauf ab, ein Werkzeug zur Verfügung zu stellen, mit dem m
 
 ## Wichitig: Das Porgramm wird nur mit der jshell gesteuert. Wenn beim ersten Versuch des Öffnens des Programmes ein Fehler auftritt, einfach noch mal öffnen, dann sollte es immer funktionieren.
 
+# Wahrheitstabellen für Gattertypen
+
+## AND-Gatter
+| Input 1 | Input 2 | Output |
+|---------|---------|--------|
+|    0    |    0    |   0    |
+|    0    |    1    |   0    |
+|    1    |    0    |   0    |
+|    1    |    1    |   1    |
+
+## OR-Gatter
+| Input 1 | Input 2 | Output |
+|---------|---------|--------|
+|    0    |    0    |   0    |
+|    0    |    1    |   1    |
+|    1    |    0    |   1    |
+|    1    |    1    |   1    |
+
+## XOR-Gatter
+| Input 1 | Input 2 | Output |
+|---------|---------|--------|
+|    0    |    0    |   0    |
+|    0    |    1    |   1    |
+|    1    |    0    |   1    |
+|    1    |    1    |   0    |
+
+## NAND-Gatter
+| Input 1 | Input 2 | Output |
+|---------|---------|--------|
+|    0    |    0    |   1    |
+|    0    |    1    |   1    |
+|    1    |    0    |   1    |
+|    1    |    1    |   0    |
+
+## NOR-Gatter
+| Input 1 | Input 2 | Output |
+|---------|---------|--------|
+|    0    |    0    |   1    |
+|    0    |    1    |   0    |
+|    1    |    0    |   0    |
+|    1    |    1    |   0    |
+
+## XNOR-Gatter
+| Input 1 | Input 2 | Output |
+|---------|---------|--------|
+|    0    |    0    |   1    |
+|    0    |    1    |   0    |
+|    1    |    0    |   0    |
+|    1    |    1    |   1    |
+
+## NOT-Gatter
+| Input | Output |
+|-------|--------|
+|   0   |   1    |
+|   1   |   0    |
+
+
 # Dokumentation 
 # Szenario 1 - Grundlegende Gatter
 
@@ -478,6 +535,135 @@ c1.deleteCircuit();
 HalfAdder halfAdder = new HalfAdder(c1);
 c1.setInput(halfAdder.x1, 1);
 c1.setInput(halfAdder.x2, 1);
+
+Clerk.markdown("""
+---
+# Szenario 5 – Speichern und Laden von Schaltungen
+
+## Ziel
+Das Ziel dieses Szenarios ist es, Nutzern zu ermöglichen, Schaltungen abzuspeichern und später wieder zu laden, um sie weiterzuverwenden und zu bearbeiten. Dies ist besonders praktisch, wenn komplexe Schaltungen wie ein Halbaddierer erstellt wurden und die Arbeit an der Schaltung nach einer Pause fortgesetzt werden soll.
+
+## Herausforderung
+- Beim Speichern und Laden wurde festgestellt, dass die Referenzen der geladenen Objekte häufig nicht korrekt aktualisiert wurden. Dies führte dazu, dass die Schaltungen zwar optisch korrekt geladen wurden, aber keine Interaktion mit den geladenen Komponenten möglich war.
+- Man kann neue Gatter oder Eingänge in die geladene Schaltung einfügen und diese neuen Komponenten weiter bearbeiten, allerdings ist es nicht möglich, diese neuen Komponenten mit den bereits geladenen Komponenten zu verbinden.
+
+## Vorgehensweise
+
+### 1. **Speichern der Schaltung**
+Die Schaltung wird in einer Datei im `.ser`-Format gespeichert, das die Serialisierung der Schaltung ermöglicht. Hierbei werden alle relevanten Informationen wie die Komponenten, Verbindungen und Positionen gespeichert. Die gespeicherte Datei wird im selben Verzeichnis wie die der Java-Datei hinterlegt.
+
+```java
+class CircuitHandler<T> {
+    public void saveCircuit(Circuit<T> circuit, String fileName) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
+            oos.writeObject(circuit);
+            System.out.println("Schaltung erfolgreich in " + fileName + " gespeichert.");
+        } catch (IOException e) {
+            System.err.println("Fehler beim Speichern der Schaltung: " + fileName);
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 2. Laden der Schaltung
+Beim Laden einer Schaltung wird die gespeicherte Datei gelesen und die Schaltung in die Live-Ansicht eingefügt. Dabei wird die Methode copyFrom der Circuit-Klasse verwendet, um die geladenen Daten auf das existierende Schaltungsobjekt zu übertragen.
+
+```java
+class CircuitHandler<T> {
+    public void loadCircuit(String fileName, Circuit<T> targetCircuit) {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+            Circuit<T> loadedCircuit = (Circuit<T>) ois.readObject();
+            System.out.println("Schaltung erfolgreich aus " + fileName + " geladen.");
+            targetCircuit.copyFrom(loadedCircuit);
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Fehler beim Laden der Schaltung: " + fileName);
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 3. Kopieren der geladenen Schaltung
+Die Methode copyFrom stellt sicher, dass die geladenen Komponenten und Verbindungen korrekt in die Live-Ansicht übertragen werden. Dies beinhaltet das Neuzeichnen aller Elemente und das Aktualisieren der Verbindungen.
+
+```java
+void copyFrom(Circuit<T> loadedCircuit) { 
+    this.width = loadedCircuit.width;
+    this.height = loadedCircuit.height;
+    this.maxCols = loadedCircuit.maxCols;
+    this.maxRows = loadedCircuit.maxRows;
+    this.turtle1 = new Turtle(this.width, this.height);
+    this.turtle2 = new Turtle(1600, 1000);
+    this.components.clear();
+
+    for (Map.Entry<Point, T> entry : loadedCircuit.components.entrySet()) {
+        Point position = entry.getKey();
+        T component = entry.getValue(); 
+        // falls das Objekt ein Gate oder Input ist, Referenz aktualisieren
+        this.components.put(position, component);
+        this.addComponentWithoutChecks(position.y, position.x, component);
+        if (component instanceof Gate gate) component = this.getComponentByName(gate.getName());
+        else if (component instanceof Input input) component = this.getComponentByName(input.getInputName());
+        System.out.println(component + " an Position (" + position.y + ", " + position.x + ") hinzugefügt.");
+    }
+
+    this.connections.clear();
+    this.firstInputPositions.clear();
+    this.secondInputPositions.clear();
+    this.outputPositions.clear();
+
+    restoreConnections(loadedCircuit);
+}
+```
+
+## Beispiel:
+### jshell:
+```java
+// Schaltung erstellen
+Circuit<Object> c1 = new Circuit<>("Half-Adder", 15, 6);
+HalfAdder halfAdder = new HalfAdder(c1);
+
+// Schaltung speichern und die Ansicht zurücksetzen
+CircuitHandler<Object> handler = new CircuitHandler<>();
+handler.saveCircuit(c1, "HalfAdder.ser");
+Clerk.clear()
+
+// Schaltung laden
+Circuit<Object> c2 = new Circuit<>("Half-Adder", 15, 6);
+CircuitHandler<Object> handler = new CircuitHandler<>();
+handler.loadCircuit("HalfAdder.ser", c2);
+```
+
+## Fazit
+Beim Speichern und Laden der Schaltung wurde festgestellt, dass die geladenen Schaltungen zwar optisch korrekt dargestellt werden, jedoch keine weitere Interaktion mit den geladenen Komponenten möglich ist. 
+Dies bedeutet, dass Eingaben nicht geschaltet und keine neuen Verbindungen mit den geladenen Komponenten erstellt werden können. 
+Allerdings ist es möglich, neue Gatter oder Eingänge in die geladene Schaltung einzubauen und mit diesen weiterzuarbeiten. 
+Jedoch können diese neuen Komponenten nicht mit den bereits geladenen Komponenten verbunden werden. 
+Dieses Verhalten ist auf das Problem zurückzuführen, dass die Referenzen der geladenen Objekte nicht korrekt aktualisiert werden. 
+Dadurch bleibt die Schaltung nur teilweise nutzbar und stellt eine bekannte Herausforderung bei der Arbeit mit serialisierten Objekten und generischen Typen dar.
+
+# Weitere nützliche Funktionen
+
+## **1. deleteCircuit()**
+Diese Funktion setzt die gesamte Schaltung zurück. Alle Komponenten, Verbindungen und Positionen werden gelöscht, und die Zeichenfläche wird vollständig geleert.
+
+---
+
+## **2. addColumn(int count)**
+Mit dieser Funktion kann die Anzahl der Spalten in der Schaltung dynamisch erhöht werden. Der Parameter `count` gibt an, wie viele zusätzliche Spalten hinzugefügt werden sollen. 
+
+---
+
+## **3. addRow(int count)**
+Ähnlich wie `addColumn()` ermöglicht diese Funktion das Hinzufügen zusätzlicher Reihen. Der Parameter `count` gibt an, wie viele Reihen zur aktuellen Schaltung hinzugefügt werden sollen. 
+
+---
+
+## **4. printConnections()**
+Diese Funktion gibt alle derzeitigen Verbindungen der Schaltung in der Konsole aus. Sie zeigt an, welche Komponenten miteinander verbunden sind, inklusive der Details zu den Eingängen und Ausgängen. 
+""");
+
 
 class Circuit<T> implements Serializable {
     private static final long serialVersionUID = 1L;

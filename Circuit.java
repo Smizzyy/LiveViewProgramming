@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.awt.Rectangle;
+//import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -50,6 +51,7 @@ class Circuit<T> implements Serializable {
         drawCircuitField();
     }
 
+    // wird beim Laden aufgerufen
     void copyFrom(Circuit<T> loadedCircuit) { 
         this.width = loadedCircuit.width;
         this.height = loadedCircuit.height;
@@ -57,29 +59,38 @@ class Circuit<T> implements Serializable {
         this.maxRows = loadedCircuit.maxRows;
         this.turtle1 = new Turtle(this.width, this.height);
         this.turtle2 = new Turtle(1600, 1000);
-        this.drawCircuitField();
         this.components.clear();
+
         for (Map.Entry<Point, T> entry : loadedCircuit.components.entrySet()) {
             Point position = entry.getKey();
             T component = entry.getValue(); 
-             // Falls das Objekt ein Gate oder Input ist, Referenz aktualisieren
+            // falls das Objekt ein Gate oder Input ist, Referenz aktualisieren
             this.components.put(position, component);
             this.addComponentWithoutChecks(position.y, position.x, component);
-            if (component instanceof Gate gate) {
-                component = this.getComponentByName(gate.getName());
-                System.out.println(((Gate)component).getName());
-            } else if (component instanceof Input input) {
-                component = this.getComponentByName(input.getInputName());
-                System.out.println(((Input)component).getInputName());
-            }
+            if (component instanceof Gate gate) component = this.getComponentByName(gate.getName());
+            else if (component instanceof Input input) component = this.getComponentByName(input.getInputName());
             System.out.println(component + " an Position (" + position.y + ", " + position.x + ") hinzugefügt.");
         }
 
-        this.connections = new ArrayList<>();
+        this.connections.clear();
         this.firstInputPositions.clear();
         this.secondInputPositions.clear();
         this.outputPositions.clear();
 
+        restoreConnections(loadedCircuit);
+    }
+
+    // über den Namen die Komponente bekommen 
+    T getComponentByName(String name) {
+        for (T component : components.values()) {
+            if (component instanceof Gate gate && gate.getName().equals(name)) return component;
+            else if (component instanceof Input input && input.getInputName().equals(name)) return component;
+        }
+        throw new IllegalArgumentException("Komponente mit dem Namen " + name + " nicht gefunden.");
+    }
+
+    // Verbindung beim Laden wiederherstellen
+    void restoreConnections(Circuit<T> loadedCircuit) {
         for (Connection<T> connection : loadedCircuit.connections) {
             T source = connection.source;
             T destination = connection.destination;
@@ -96,18 +107,7 @@ class Circuit<T> implements Serializable {
             }
         }
     }
-
-    public T getComponentByName(String name) {
-        for (T component : components.values()) {
-            if (component instanceof Gate gate && gate.getName().equals(name)) {
-                return component;
-            } else if (component instanceof Input input && input.getInputName().equals(name)) {
-                return component;
-            }
-        }
-        throw new IllegalArgumentException("Komponente mit dem Namen " + name + " nicht gefunden.");
-    }
-
+    
     // einzelenes Quadrat im Feld
     void drawSquare() {
         for (int i = 0; i < 4; i++) {
@@ -422,7 +422,7 @@ class Circuit<T> implements Serializable {
     
             // zeichne die Spaltennummer
             turtle1.moveTo(x, 0);
-            turtle1.color(255, 0, 0).penUp().left(90).backward(35).text("     " + maxCols, null, 25, null).forward(35).right(90).color(0, 0, 0);
+            turtle1.color(255, 0, 0).penUp().left(90).backward(35).text("     " + maxCols, null, 25, null).forward(35).right(90).color(170, 170, 170);
             drawPointHorizontal();
             turtle1.penUp().forward(100);
     
@@ -433,7 +433,8 @@ class Circuit<T> implements Serializable {
                 turtle1.moveTo(x, y += 100); // weiter zur nächsten Zelle in der Spalte
             }
         }
-        System.out.println(count + " Spalte(n) wurde(n) hinzugefuegt. Gesamtspalten: " + maxCols);
+        turtle1.color(0, 0, 0);
+        System.out.println(count + " Spalte(n) wurde(n) hinzugefügt. Gesamtspalten: " + maxCols);
     }
 
     // Reihen hinzufügen
@@ -447,7 +448,7 @@ class Circuit<T> implements Serializable {
     
             // zeichne die Reihennummer
             turtle1.moveTo(0, y);
-            turtle1.color(255, 0, 0).penUp().forward(10).left(90).backward(60).text("" + maxRows, null, 25, null).forward(60).right(90).backward(10).color(0, 0, 0);
+            turtle1.color(255, 0, 0).penUp().forward(10).left(90).backward(60).text("" + maxRows, null, 25, null).forward(60).right(90).backward(10).color(170, 170, 170);
             drawPointVertical();
             turtle1.penUp().forward(100);
     
@@ -458,6 +459,7 @@ class Circuit<T> implements Serializable {
                 turtle1.moveTo(x += 100, y); // weiter zur nächsten Zelle in der Reihe
             }
         }
+        turtle1.color(0, 0, 0);
         System.out.println(count + " Spalte(n) wurde(n) hinzugefuegt. Gesamtspalten: " + maxRows);
     }
     
@@ -1403,10 +1405,49 @@ class Circuit<T> implements Serializable {
         saveEndingOfInput(x, y, component);
     }
 
+    // Tests
     // Schaltung speichern
-/*    void saveCircuit(String fileName) {
+    /*void saveCircuit(String fileName) {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(fileName))) {
-            oos.writeObject(this);
+            // alle Variablen speichern
+            oos.writeObject(width);
+            oos.writeObject(height);
+            oos.writeObject(maxCols);
+            oos.writeObject(maxRows);
+            oos.writeObject(isRedrawing);
+            oos.writeObject(offsetX);
+            oos.writeObject(offsetY);
+            
+            // alle Komponente speichern
+            for (Map.Entry<Point, T> entry : components.entrySet()) {
+                oos.writeObject(entry.getKey());
+                oos.writeObject(entry.getValue());
+            }
+            
+            // alle oberen Eingänge speichern
+            for (Map.Entry<T, Point> entry : firstInputPositions.entrySet()) {
+                oos.writeObject(entry.getKey());
+                oos.writeObject(entry.getValue());
+            }
+           
+            // alle unteren Eingänge speichern
+            for (Map.Entry<T, Point> entry : secondInputPositions.entrySet()) {
+                oos.writeObject(entry.getKey());
+                oos.writeObject(entry.getValue());
+            }
+            
+            // alle Ausgänge speichern
+            for (Map.Entry<T, Point> entry : outputPositions.entrySet()) {
+                oos.writeObject(entry.getKey());
+                oos.writeObject(entry.getValue());
+            }
+            
+            // alle Verbindungen speichern
+            for (Connection<T> connection : connections) oos.writeObject(connection);
+            
+            // alle mit Kabel besetzten Stellen speichern
+            for (Point wirePoint : wirePoints) oos.writeObject(wirePoint);
+
             System.out.println("Datei " + fileName +" wurde gespeichert.");
         } catch (IOException e) {
             e.printStackTrace();
@@ -1440,7 +1481,101 @@ class Circuit<T> implements Serializable {
             return null;
         }
     }
-*/
+
+    @SuppressWarnings("unchecked")
+    void loadCircuit(String fileName) {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName))) {
+            turtle1.reset();
+            turtle2.reset();
+            drawCircuitField();
+
+            // alle Variablen laden
+            width = (Integer) ois.readObject();
+            height = (Integer) ois.readObject();
+            maxCols = (Integer) ois.readObject();
+            maxRows = (Integer) ois.readObject();
+            isRedrawing = (Boolean) ois.readObject();
+            offsetX = (Integer) ois.readObject();
+            offsetY = (Integer) ois.readObject();
+
+            // alle Komponenten laden
+            components.clear(); 
+            while (true) { 
+                try {
+                    Point point = (Point) ois.readObject();
+                    T component = (T) ois.readObject();
+                    components.put(point, component);
+                    addComponentWithoutChecks(point.y, point.x , component);
+                } catch (EOFException e) { 
+                    break; // Ende der Komponenten erreicht
+                }
+            }
+
+            // alle oberen Eingänge laden
+            firstInputPositions.clear();
+            while (true) {
+                try {
+                    T component = (T) ois.readObject();
+                    Point point = (Point) ois.readObject();
+                    firstInputPositions.put(component, point);
+                } catch (EOFException e) {
+                    break; // Ende der oberen Eingänge erreicht
+                }
+            }
+
+            // alle unteren Eingänge laden
+            secondInputPositions.clear();
+            while (true) {
+                try {
+                    T component = (T) ois.readObject();
+                    Point point = (Point) ois.readObject();
+                    secondInputPositions.put(component, point);
+                } catch (EOFException e) {
+                    break; // Ende der unteren Eingänge erreicht
+                }
+            }
+
+            // alle Ausgänge laden
+            outputPositions.clear();
+            while (true) {
+                try {
+                    T component = (T) ois.readObject();
+                    Point point = (Point) ois.readObject();
+                    outputPositions.put(component, point);
+                } catch (EOFException e) {
+                    break; // Ende der Ausgänge erreicht
+                }
+            }
+
+            // alle Verbindungen laden
+            connections.clear();
+            while (true) {
+                try {
+                    T source = (T) ois.readObject();
+                    T destination = (T) ois.readObject();
+                    int inputNumber = (Integer) ois.readObject();
+                    connectComponents(source, destination, inputNumber);
+                } catch (EOFException e) {
+                    break; // Ende der Verbindungen erreicht
+                }
+            }
+
+            // alle mit Kabel besetzten Stellen laden
+            wirePoints.clear();
+            while (true) {
+                try {
+                    wirePoints.add((Point) ois.readObject());
+                } catch (EOFException e) {
+                    break; // Ende der mit Kabel besetzten Stellen erreicht
+                }
+            }
+
+            System.out.println("Datei " + fileName + " wurde geladen.");
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }*/
+
 }
 
 // Gatter mit verschiedener Logik

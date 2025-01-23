@@ -1,0 +1,1 @@
+# Wichitig: Das Porgramm wird nur mit der jshell gesteuert. Wenn beim ersten Versuch des Öffnens des Programmes ein Fehler auftritt, einfach noch mal öffnen, dann sollte es immer funktionieren. 
