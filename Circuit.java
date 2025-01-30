@@ -209,7 +209,7 @@ class Circuit<T> implements Serializable {
 
         // Output-Teil der Tabelle zeichnen
         for (int i = 0; i < outputCount; i++) 
-            turtle2.left(90).forward(30).penUp().backward(30).penDown().backward(tableHeight).penUp().forward(tableHeight).right(90).penDown().forward(230);      
+            turtle2.left(90).forward(30).penUp().backward(30).penDown().backward(tableHeight).penUp().forward(tableHeight).right(90).penDown().forward(240);      
     }
 
     // Inputs-Kombinationen schreiben
@@ -265,7 +265,7 @@ class Circuit<T> implements Serializable {
                 int value = outputCombination.get(j);
                 // Output-Werte in die Tabelle schreiben
                 turtle2.left(90).text("" + value, null, 14, null).right(90).forward(240);
-                if ((j + 1) % outputCount == 0) turtle2.backward(outputCount + 230).right(90).moveTo(115 + (15 + 30 * inputs.size()), 75 + ((i + 1) * 60)).left(90);
+                if ((j + 1) % outputCount == 0) turtle2.backward(outputCount + 240).right(90).moveTo(115 + (15 + 30 * inputs.size()), 75 + ((i + 1) * 60)).left(90);
             }
         }
     }
