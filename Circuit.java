@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.awt.Rectangle;
-//import java.io.EOFException;
+// import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,7 +27,7 @@ class Circuit<T> implements Serializable {
     private Map<T, Point> outputPositions; // key: Komponente, value: Punkt
     private List<Connection<T>> connections; // Liste der verbundenen Komponente 
     private List<Point> wirePoints; // speichert die Punkte ab, wo sich ein Kabel befindet
-    private transient Turtle turtle1;
+    private transient Turtle turtle1; 
     private transient Turtle turtle2;
     private int width = 1600;
     private int height = 700;
